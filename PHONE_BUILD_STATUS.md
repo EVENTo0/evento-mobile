@@ -1,22 +1,22 @@
 # EVENTO Phone Build Status
 
-Commit: d3ccf8338d1a58562b5919714255f6d88a8d2fd6
-Run number: 6
-Job status: failure
-Failed stage: source_patch
-Updated: 2026-08-08T22:29:53Z
+Commit: 932350464dc7058d2ea50d804408ba927735fae7
+Run number: 7
+Job status: success
+Failed stage: none
+Updated: 2026-08-08T22:37:19Z
 
 ## Step outcomes
 - Flutter install: success
 - Android wrapper: success
-- Source patch: failure
-- Signing: skipped
-- Pub get: skipped
-- Analyze: skipped
-- Tests: skipped
-- Build: skipped
-- Artifact: skipped
-- Release: skipped
+- Source patch: success
+- Signing: success
+- Pub get: success
+- Analyze: success
+- Tests: success
+- Build: success
+- Artifact: success
+- Release: success
 
 ## Diagnostic tail
 ```text
@@ -93,5 +93,72 @@ In order to run your application, type:
 Your application code is in ./lib/main.dart.
 
 ===== ci-logs/03-source-patch.log =====
-Expected account signed-in block was not found.
+Supabase initialization uses publishableKey. Account null-safety source left intact.
+===== ci-logs/04-signing.log =====
+androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
+Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
+===== ci-logs/05-pub-get.log =====
++ shared_preferences_android 2.4.27
++ shared_preferences_foundation 2.5.6
++ shared_preferences_linux 2.4.1
++ shared_preferences_platform_interface 2.4.2
++ shared_preferences_web 2.4.3
++ shared_preferences_windows 2.4.1
++ sky_engine 0.0.0 from sdk flutter
++ source_span 1.10.2
++ stack_trace 1.12.1
++ storage_client 2.6.0 (2.8.0 available)
++ stream_channel 2.1.4
++ string_scanner 1.4.1
++ supabase 2.14.0 (2.16.0 available)
++ supabase_flutter 2.16.0 (2.17.1 available)
++ term_glyph 1.2.2
++ test_api 0.7.11 (0.7.13 available)
++ typed_data 1.4.0
++ url_launcher 6.3.2
++ url_launcher_android 6.3.32
++ url_launcher_ios 6.4.1
++ url_launcher_linux 3.2.2
++ url_launcher_macos 3.2.5
++ url_launcher_platform_interface 2.3.2
++ url_launcher_web 2.4.3
++ url_launcher_windows 3.1.5
+  vector_math 2.2.0 (from direct dependency to transitive dependency) (2.4.2 available)
++ vm_service 15.2.0
++ web 1.1.1
++ web_socket 1.0.1
++ web_socket_channel 3.0.3
++ xdg_directories 1.1.0
++ yet_another_json_isolate 2.1.1
+Changed 80 dependencies!
+11 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+===== ci-logs/06-analyze.log =====
+Analyzing evento-mobile...                                      
+No issues found! (ran in 6.9s)
+===== ci-logs/07-tests.log =====
+00:00 +0: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
+00:00 +0: EVENTO shell loads and navigates to request
+00:00 +1: language toggle switches navigation labels
+00:01 +2: All tests passed!
+===== ci-logs/08-build.log =====
+[1/1] Android SDK
+  ├─ [1/6] android-arm-profile/linux-x64                           281ms
+  ├─ [2/6] android-arm-release/linux-x64                           127ms
+  ├─ [3/6] android-arm64-profile/linux-x64                         139ms
+  ├─ [4/6] android-arm64-release/linux-x64                         115ms
+  ├─ [5/6] android-x64-profile/linux-x64                           125ms
+  └─ [6/6] android-x64-release/linux-x64                           107ms
+Running Gradle task 'assembleDebug'...                          
+Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+Running Gradle task 'assembleDebug'...                            310.0s
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+===== ci-logs/09-release.log =====
+https://github.com/EVENTo0/evento-mobile/releases/tag/dev-latest
 ```
