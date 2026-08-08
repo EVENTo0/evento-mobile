@@ -14,6 +14,9 @@ concurrency:
   group: evento-phone-dev-validated
   cancel-in-progress: true
 
+env:
+  FLUTTER_VERSION: '3.44.9'
+
 jobs:
   android-dev:
     name: Validate and build Android phone APK
@@ -22,112 +25,184 @@ jobs:
 
     steps:
       - name: Checkout EVENTO
+        id: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install Flutter 3.44.9 from official repository
+      - name: Set up Java 17
+        id: java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install pinned Flutter
+        id: flutter_install
         shell: bash
         run: |
-          git clone --depth 1 --branch 3.44.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          set -o pipefail
+          mkdir -p ci-logs
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter" 2>&1 | tee ci-logs/01-flutter-install.log
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
-          "$RUNNER_TEMP/flutter/bin/flutter" --version
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics 2>&1 | tee -a ci-logs/01-flutter-install.log
+          "$RUNNER_TEMP/flutter/bin/flutter" --version 2>&1 | tee -a ci-logs/01-flutter-install.log
 
       - name: Generate Android platform wrapper
-        run: flutter create --platforms=android --org ae.evento --project-name evento_mobile .
-
-      - name: Apply bootstrap null-safety hotfix
+        id: android_wrapper
         shell: bash
         run: |
-          python3 - <<'PY'
+          set -o pipefail
+          flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
+
+      - name: Apply bootstrap null-safety compatibility patch
+        id: source_patch
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 - <<'PY' 2>&1 | tee ci-logs/03-source-patch.log
           from pathlib import Path
           p = Path('lib/main.dart')
           s = p.read_text()
           s = s.replace('await client.auth.signOut();', 'await client!.auth.signOut();')
           p.write_text(s)
+          print('Compatibility patch applied.')
           PY
 
-      - name: Restore stable EVENTO dev signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: evento-dev-debug-keystore-v1
-
-      - name: Ensure dev signing key exists
+      - name: Install persistent EVENTO dev signing key
+        id: signing
         shell: bash
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=EVENTO Dev,O=EVENTO,C=AE"
-          fi
+          set -o pipefail
+          mkdir -p ci-logs "$HOME/.android"
+          base64 --decode tool/dev_signing/evento-debug.keystore.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>&1 | tee ci-logs/04-signing.log
 
       - name: Resolve dependencies
-        run: flutter pub get
-
-      - name: Static analysis
-        run: flutter analyze --no-fatal-infos
-
-      - name: Unit and widget tests
-        run: flutter test
-
-      - name: Build phone dev APK
+        id: pub_get
         shell: bash
         run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee ci-logs/05-pub-get.log
+
+      - name: Static analysis
+        id: analyze
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee ci-logs/06-analyze.log
+
+      - name: Unit and widget tests
+        id: tests
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
+
+      - name: Build phone dev APK
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
           flutter build apk --debug \
+            --build-number "$GITHUB_RUN_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
-            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
+            2>&1 | tee ci-logs/08-build.log
           cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
           sha256sum evento-dev.apk | tee evento-dev.apk.sha256
 
       - name: Upload APK artifact
+        id: artifact
         uses: actions/upload-artifact@v4
         with:
           name: evento-dev-apk
           path: |
             evento-dev.apk
             evento-dev.apk.sha256
-          retention-days: 14
+          retention-days: 30
           if-no-files-found: error
 
       - name: Publish permanent dev-latest release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -o pipefail
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
-            git push origin -f dev-latest
-            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber
-            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "Validated phone-first Android build from ${GITHUB_SHA}."
+            git push origin -f dev-latest 2>&1 | tee ci-logs/09-release.log
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/09-release.log
+            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "Validated phone-first Android build from ${GITHUB_SHA}." 2>&1 | tee -a ci-logs/09-release.log
           else
             gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
               --target "$GITHUB_SHA" \
               --title "EVENTO Dev Latest" \
-              --notes "Validated phone-first Android build from ${GITHUB_SHA}."
+              --prerelease \
+              --notes "Validated phone-first Android build from ${GITHUB_SHA}." 2>&1 | tee ci-logs/09-release.log
           fi
 
-      - name: Write build status marker
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-ci-diagnostics-${{ github.run_number }}
+          path: ci-logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Write build status and failure stage
         if: always()
         shell: bash
         run: |
-          cat > PHONE_BUILD_STATUS.md <<EOF
-          # EVENTO Phone Build Status
-          Commit: $GITHUB_SHA
-          Workflow: validated phone-first Android build
-          Job status: ${{ job.status }}
-          Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          EOF
+          FAILED_STAGE="none"
+          if [ "${{ steps.flutter_install.outcome }}" = "failure" ]; then FAILED_STAGE="flutter_install";
+          elif [ "${{ steps.android_wrapper.outcome }}" = "failure" ]; then FAILED_STAGE="android_wrapper";
+          elif [ "${{ steps.source_patch.outcome }}" = "failure" ]; then FAILED_STAGE="source_patch";
+          elif [ "${{ steps.signing.outcome }}" = "failure" ]; then FAILED_STAGE="signing";
+          elif [ "${{ steps.pub_get.outcome }}" = "failure" ]; then FAILED_STAGE="pub_get";
+          elif [ "${{ steps.analyze.outcome }}" = "failure" ]; then FAILED_STAGE="analyze";
+          elif [ "${{ steps.tests.outcome }}" = "failure" ]; then FAILED_STAGE="tests";
+          elif [ "${{ steps.build.outcome }}" = "failure" ]; then FAILED_STAGE="build";
+          elif [ "${{ steps.artifact.outcome }}" = "failure" ]; then FAILED_STAGE="artifact";
+          elif [ "${{ steps.release.outcome }}" = "failure" ]; then FAILED_STAGE="release";
+          fi
+
+          {
+            echo "# EVENTO Phone Build Status"
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Run number: $GITHUB_RUN_NUMBER"
+            echo "Job status: ${{ job.status }}"
+            echo "Failed stage: $FAILED_STAGE"
+            echo "Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo
+            echo "## Step outcomes"
+            echo "- Flutter install: ${{ steps.flutter_install.outcome }}"
+            echo "- Android wrapper: ${{ steps.android_wrapper.outcome }}"
+            echo "- Source patch: ${{ steps.source_patch.outcome }}"
+            echo "- Signing: ${{ steps.signing.outcome }}"
+            echo "- Pub get: ${{ steps.pub_get.outcome }}"
+            echo "- Analyze: ${{ steps.analyze.outcome }}"
+            echo "- Tests: ${{ steps.tests.outcome }}"
+            echo "- Build: ${{ steps.build.outcome }}"
+            echo "- Artifact: ${{ steps.artifact.outcome }}"
+            echo "- Release: ${{ steps.release.outcome }}"
+            echo
+            echo "## Diagnostic tail"
+            echo '```text'
+            for f in ci-logs/*.log; do
+              [ -f "$f" ] || continue
+              echo "===== $f ====="
+              tail -n 35 "$f"
+            done
+            echo '```'
+          } > PHONE_BUILD_STATUS.md
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add PHONE_BUILD_STATUS.md
-          git commit -m "ci: record phone build status [skip ci]" || exit 0
+          git commit -m "ci: record phone build diagnostics [skip ci]" || exit 0
           git push || true
