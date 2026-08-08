@@ -1,0 +1,20 @@
+name: evento_mobile
+description: EVENTO phone-first mobile control and customer app.
+publish_to: "none"
+version: 0.9.0+3
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: 2.16.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true
