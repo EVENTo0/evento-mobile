@@ -1,10 +1,10 @@
 # EVENTO Phone Build Status
 
-Commit: 92ac79310fb684b330664a92c552c0b3c2c0c8b9
-Run number: 4
+Commit: 887779e200747986f0687e9d917a7abbac01a1c6
+Run number: 5
 Job status: failure
 Failed stage: analyze
-Updated: 2026-08-08T22:25:54Z
+Updated: 2026-08-08T22:28:11Z
 
 ## Step outcomes
 - Flutter install: success
@@ -93,7 +93,7 @@ In order to run your application, type:
 Your application code is in ./lib/main.dart.
 
 ===== ci-logs/03-source-patch.log =====
-Compatibility patch applied.
+Bootstrap source normalized for current Supabase API and Dart flow analysis.
 ===== ci-logs/04-signing.log =====
 androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
 Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
@@ -136,8 +136,8 @@ Try `flutter pub outdated` for more information.
 ===== ci-logs/06-analyze.log =====
 Analyzing evento-mobile...                                      
 
-   info • 'anonKey' is deprecated and shouldn't be used. Use publishableKey instead. anonKey will be removed in a future major version. Try replacing the use of the deprecated member with the replacement • lib/main.dart:16:9 • deprecated_member_use
-warning • The '!' will have no effect because the receiver can't be null. Try removing the '!' operator • lib/main.dart:729:31 • unnecessary_non_null_assertion
+  error • The property 'auth' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/main.dart:724:34 • unchecked_use_of_nullable_value
+  error • The property 'auth' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/main.dart:729:32 • unchecked_use_of_nullable_value
 
-2 issues found. (ran in 9.3s)
+2 issues found. (ran in 7.4s)
 ```
