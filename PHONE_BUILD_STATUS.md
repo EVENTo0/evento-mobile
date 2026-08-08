@@ -1,18 +1,18 @@
 # EVENTO Phone Build Status
 
-Commit: 887779e200747986f0687e9d917a7abbac01a1c6
-Run number: 5
+Commit: d3ccf8338d1a58562b5919714255f6d88a8d2fd6
+Run number: 6
 Job status: failure
-Failed stage: analyze
-Updated: 2026-08-08T22:28:11Z
+Failed stage: source_patch
+Updated: 2026-08-08T22:29:53Z
 
 ## Step outcomes
 - Flutter install: success
 - Android wrapper: success
-- Source patch: success
-- Signing: success
-- Pub get: success
-- Analyze: failure
+- Source patch: failure
+- Signing: skipped
+- Pub get: skipped
+- Analyze: skipped
 - Tests: skipped
 - Build: skipped
 - Artifact: skipped
@@ -93,51 +93,5 @@ In order to run your application, type:
 Your application code is in ./lib/main.dart.
 
 ===== ci-logs/03-source-patch.log =====
-Bootstrap source normalized for current Supabase API and Dart flow analysis.
-===== ci-logs/04-signing.log =====
-androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
-Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
-===== ci-logs/05-pub-get.log =====
-+ shared_preferences_android 2.4.27
-+ shared_preferences_foundation 2.5.6
-+ shared_preferences_linux 2.4.1
-+ shared_preferences_platform_interface 2.4.2
-+ shared_preferences_web 2.4.3
-+ shared_preferences_windows 2.4.1
-+ sky_engine 0.0.0 from sdk flutter
-+ source_span 1.10.2
-+ stack_trace 1.12.1
-+ storage_client 2.6.0 (2.8.0 available)
-+ stream_channel 2.1.4
-+ string_scanner 1.4.1
-+ supabase 2.14.0 (2.16.0 available)
-+ supabase_flutter 2.16.0 (2.17.1 available)
-+ term_glyph 1.2.2
-+ test_api 0.7.11 (0.7.13 available)
-+ typed_data 1.4.0
-+ url_launcher 6.3.2
-+ url_launcher_android 6.3.32
-+ url_launcher_ios 6.4.1
-+ url_launcher_linux 3.2.2
-+ url_launcher_macos 3.2.5
-+ url_launcher_platform_interface 2.3.2
-+ url_launcher_web 2.4.3
-+ url_launcher_windows 3.1.5
-  vector_math 2.2.0 (from direct dependency to transitive dependency) (2.4.2 available)
-+ vm_service 15.2.0
-+ web 1.1.1
-+ web_socket 1.0.1
-+ web_socket_channel 3.0.3
-+ xdg_directories 1.1.0
-+ yet_another_json_isolate 2.1.1
-Changed 80 dependencies!
-11 packages have newer versions incompatible with dependency constraints.
-Try `flutter pub outdated` for more information.
-===== ci-logs/06-analyze.log =====
-Analyzing evento-mobile...                                      
-
-  error • The property 'auth' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/main.dart:724:34 • unchecked_use_of_nullable_value
-  error • The property 'auth' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/main.dart:729:32 • unchecked_use_of_nullable_value
-
-2 issues found. (ran in 7.4s)
+Expected account signed-in block was not found.
 ```
