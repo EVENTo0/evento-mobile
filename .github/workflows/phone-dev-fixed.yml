@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize bootstrap source for current Supabase API
+      - name: Normalize bootstrap source for current APIs
         id: source_patch
         shell: bash
         run: |
@@ -65,9 +65,21 @@ jobs:
           p = Path('lib/main.dart')
           s = p.read_text()
           s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-          s = s.replace('client!.auth.currentUser', 'client.auth.currentUser')
+          old = """        ] else ...[
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person)),
+              title: Text(client!.auth.currentUser?.email ?? 'EVENTO user'),"""
+          new = """        ] else if (client != null) ...[
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person)),
+              title: Text(client.auth.currentUser?.email ?? 'EVENTO user'),"""
+          if old not in s:
+              raise SystemExit('Expected account signed-in block was not found.')
+          s = s.replace(old, new, 1)
           p.write_text(s)
-          print('Bootstrap source normalized for current Supabase API and Dart flow analysis.')
+          print('Bootstrap source normalized: publishableKey + explicit non-null signed-in branch.')
           PY
 
       - name: Install persistent EVENTO dev signing key
