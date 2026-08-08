@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Apply bootstrap null-safety compatibility patch
+      - name: Normalize bootstrap source for current Supabase API
         id: source_patch
         shell: bash
         run: |
@@ -64,9 +64,10 @@ jobs:
           from pathlib import Path
           p = Path('lib/main.dart')
           s = p.read_text()
-          s = s.replace('await client.auth.signOut();', 'await client!.auth.signOut();')
+          s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
+          s = s.replace('client!.auth.currentUser', 'client.auth.currentUser')
           p.write_text(s)
-          print('Compatibility patch applied.')
+          print('Bootstrap source normalized for current Supabase API and Dart flow analysis.')
           PY
 
       - name: Install persistent EVENTO dev signing key
@@ -91,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          flutter analyze --no-fatal-infos 2>&1 | tee ci-logs/06-analyze.log
+          flutter analyze 2>&1 | tee ci-logs/06-analyze.log
 
       - name: Unit and widget tests
         id: tests
