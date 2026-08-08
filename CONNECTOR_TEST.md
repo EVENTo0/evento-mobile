@@ -1,0 +1,1 @@
+EVENTO connector access verified on 2026-08-09. This file may be removed after bootstrap.
