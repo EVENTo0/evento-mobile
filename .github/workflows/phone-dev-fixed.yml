@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize bootstrap source for current APIs
+      - name: Normalize Supabase client initialization
         id: source_patch
         shell: bash
         run: |
@@ -64,22 +64,13 @@ jobs:
           from pathlib import Path
           p = Path('lib/main.dart')
           s = p.read_text()
-          s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-          old = """        ] else ...[
-          Card(
-            child: ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(client!.auth.currentUser?.email ?? 'EVENTO user'),"""
-          new = """        ] else if (client != null) ...[
-          Card(
-            child: ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(client.auth.currentUser?.email ?? 'EVENTO user'),"""
-          if old not in s:
-              raise SystemExit('Expected account signed-in block was not found.')
-          s = s.replace(old, new, 1)
+          old = 'anonKey: _supabasePublishableKey,'
+          new = 'publishableKey: _supabasePublishableKey,'
+          if old not in s and new not in s:
+              raise SystemExit('Supabase initialization field was not found.')
+          s = s.replace(old, new)
           p.write_text(s)
-          print('Bootstrap source normalized: publishableKey + explicit non-null signed-in branch.')
+          print('Supabase initialization uses publishableKey. Account null-safety source left intact.')
           PY
 
       - name: Install persistent EVENTO dev signing key
