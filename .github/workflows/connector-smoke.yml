@@ -1,0 +1,12 @@
+name: Connector Smoke
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/connector-smoke.yml'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo 'EVENTO connector and Actions are ready'
