@@ -1,0 +1,133 @@
+name: EVENTO Phone Dev APK (Validated)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: evento-phone-dev-validated
+  cancel-in-progress: true
+
+jobs:
+  android-dev:
+    name: Validate and build Android phone APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout EVENTO
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Flutter 3.44.9 from official repository
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 3.44.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+          "$RUNNER_TEMP/flutter/bin/flutter" --version
+
+      - name: Generate Android platform wrapper
+        run: flutter create --platforms=android --org ae.evento --project-name evento_mobile .
+
+      - name: Apply bootstrap null-safety hotfix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/main.dart')
+          s = p.read_text()
+          s = s.replace('await client.auth.signOut();', 'await client!.auth.signOut();')
+          p.write_text(s)
+          PY
+
+      - name: Restore stable EVENTO dev signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: evento-dev-debug-keystore-v1
+
+      - name: Ensure dev signing key exists
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=EVENTO Dev,O=EVENTO,C=AE"
+          fi
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze --no-fatal-infos
+
+      - name: Unit and widget tests
+        run: flutter test
+
+      - name: Build phone dev APK
+        shell: bash
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt
+          cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
+          sha256sum evento-dev.apk | tee evento-dev.apk.sha256
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-dev-apk
+          path: |
+            evento-dev.apk
+            evento-dev.apk.sha256
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish permanent dev-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view dev-latest >/dev/null 2>&1; then
+            git tag -f dev-latest "$GITHUB_SHA"
+            git push origin -f dev-latest
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber
+            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "Validated phone-first Android build from ${GITHUB_SHA}."
+          else
+            gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
+              --target "$GITHUB_SHA" \
+              --title "EVENTO Dev Latest" \
+              --notes "Validated phone-first Android build from ${GITHUB_SHA}."
+          fi
+
+      - name: Write build status marker
+        if: always()
+        shell: bash
+        run: |
+          cat > PHONE_BUILD_STATUS.md <<EOF
+          # EVENTO Phone Build Status
+          Commit: $GITHUB_SHA
+          Workflow: validated phone-first Android build
+          Job status: ${{ job.status }}
+          Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PHONE_BUILD_STATUS.md
+          git commit -m "ci: record phone build status [skip ci]" || exit 0
+          git push || true
