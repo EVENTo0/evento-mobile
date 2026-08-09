@@ -56,19 +56,117 @@ jobs:
           set -o pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize bootstrap fallback only
+      - name: Prepare RC3 live-beta anonymous test path
         id: source_patch
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           python3 - <<'PY' 2>&1 | tee ci-logs/03-source.log
           from pathlib import Path
-          p = Path('lib/main.dart')
-          if p.exists():
-              s = p.read_text()
+
+          # Keep the legacy bootstrap analyzable.
+          main = Path('lib/main.dart')
+          if main.exists():
+              s = main.read_text()
               s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-              p.write_text(s)
-          print('RC3 v2 entrypoint uses publishableKey natively; bootstrap fallback normalized for analysis.')
+              main.write_text(s)
+
+          auth = Path('lib/data/auth_service.dart')
+          s = auth.read_text()
+          if 'Future<User?> signInAnonymously()' not in s:
+              needle = '  Future<void> signOut() => client.auth.signOut();\n'
+              replacement = '''  Future<User?> signInAnonymously() async {
+            final AuthResponse response = await client.auth.signInAnonymously();
+            return response.user;
+          }
+
+          Future<void> signOut() => client.auth.signOut();
+          '''
+              if needle not in s:
+                  raise SystemExit('auth_service signOut anchor not found')
+              s = s.replace(needle, replacement, 1)
+              auth.write_text(s)
+
+          app = Path('lib/rc3_app.dart')
+          s = app.read_text()
+          s = s.replace(
+              '  bool get signedIn => email != null;\n',
+              '  bool get signedIn => auth?.currentUser != null;\n',
+              1,
+          )
+          s = s.replace(
+              "      email = client.auth.currentUser?.email;\n      if (email != null) {\n        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshLiveOrders());\n      }",
+              "      final User? currentUser = client.auth.currentUser;\n      email = currentUser?.email ?? (currentUser != null ? 'EVENTO Guest' : null);\n      if (currentUser != null) {\n        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshLiveOrders());\n      }",
+              1,
+          )
+          if 'Future<bool> _signInAnonymously()' not in s:
+              anchor = '  Future<void> _signOut() async {\n'
+              method = '''  Future<bool> _signInAnonymously() async {
+            final SupabaseAuthService? service = auth;
+            if (service == null) return false;
+            setState(() {
+              busy = true;
+              backendNotice = null;
+            });
+            try {
+              final User? user = await service.signInAnonymously();
+              if (user == null) return false;
+              if (!mounted) return true;
+              setState(() {
+                email = user.email ?? (widget.arabic ? 'ضيف EVENTO التجريبي' : 'EVENTO Test Guest');
+                backendNotice = widget.arabic
+                    ? 'تم الدخول التجريبي إلى EVENTO Live.'
+                    : 'Signed in to EVENTO Live with a test guest.';
+              });
+              await _refreshLiveOrders();
+              return true;
+            } catch (error) {
+              if (mounted) setState(() => backendNotice = '$error');
+              return false;
+            } finally {
+              if (mounted) setState(() => busy = false);
+            }
+          }
+
+          '''
+              if anchor not in s:
+                  raise SystemExit('rc3 signOut anchor not found')
+              s = s.replace(anchor, method + anchor, 1)
+
+          s = s.replace(
+              '        onVerifyOtp: _verifyOtp,\n        onSignOut: _signOut,',
+              '        onVerifyOtp: _verifyOtp,\n        onAnonymousSignIn: _signInAnonymously,\n        onSignOut: _signOut,',
+              1,
+          )
+          s = s.replace(
+              '    required this.onVerifyOtp,\n    required this.onSignOut,',
+              '    required this.onVerifyOtp,\n    required this.onAnonymousSignIn,\n    required this.onSignOut,',
+              1,
+          )
+          s = s.replace(
+              '  final Future<bool> Function(String, String) onVerifyOtp;\n  final Future<void> Function() onSignOut;',
+              '  final Future<bool> Function(String, String) onVerifyOtp;\n  final Future<bool> Function() onAnonymousSignIn;\n  final Future<void> Function() onSignOut;',
+              1,
+          )
+          login_anchor = "                  Text(widget.arabic ? 'تسجيل الدخول إلى Live Beta' : 'Sign in to Live Beta', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),\n                  const SizedBox(height: 12),\n                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: widget.arabic ? 'البريد الإلكتروني' : 'Email')),"
+          login_replacement = "                  Text(widget.arabic ? 'تسجيل الدخول إلى Live Beta' : 'Sign in to Live Beta', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),\n                  const SizedBox(height: 12),\n                  SizedBox(\n                    width: double.infinity,\n                    child: FilledButton.icon(\n                      onPressed: widget.busy ? null : widget.onAnonymousSignIn,\n                      icon: const Icon(Icons.bolt_rounded),\n                      label: Text(widget.arabic ? 'دخول تجريبي سريع' : 'Quick test sign-in'),\n                    ),\n                  ),\n                  const SizedBox(height: 10),\n                  Text(\n                    widget.arabic\n                        ? 'للتجربة الحية فقط — بدون بريد أو كلمة مرور.'\n                        : 'Live testing only — no email or password required.',\n                    style: const TextStyle(color: EventoColors.muted),\n                  ),\n                  const SizedBox(height: 14),\n                  const Divider(),\n                  const SizedBox(height: 10),\n                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: widget.arabic ? 'البريد الإلكتروني' : 'Email')),"
+          if 'دخول تجريبي سريع' not in s:
+              if login_anchor not in s:
+                  raise SystemExit('account login UI anchor not found')
+              s = s.replace(login_anchor, login_replacement, 1)
+          app.write_text(s)
+
+          checks = {
+              'auth anonymous method': 'signInAnonymously' in auth.read_text(),
+              'rc3 anonymous method': 'Future<bool> _signInAnonymously()' in app.read_text(),
+              'quick login label': 'دخول تجريبي سريع' in app.read_text(),
+              'session-based signedIn': 'auth?.currentUser != null' in app.read_text(),
+          }
+          for label, ok in checks.items():
+              print(f'{label}: {"PASS" if ok else "FAIL"}')
+              if not ok:
+                  raise SystemExit(f'{label} missing')
+          print('Anonymous Live Beta path prepared for this phone build.')
           PY
 
       - name: Install and force persistent EVENTO dev signing identity
@@ -209,7 +307,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          RELEASE_NOTES="RC3 v2 phone-safe update from ${GITHUB_SHA}. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Certificate ${EVENTO_DEV_CERT_SHA256}. Install over the existing EVENTO app; do not uninstall it."
+          RELEASE_NOTES="RC3 v2 Live Beta test update from ${GITHUB_SHA}. Includes temporary Anonymous Auth quick sign-in. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Certificate ${EVENTO_DEV_CERT_SHA256}. Install over the existing EVENTO app; do not uninstall it."
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
             git push origin -f dev-latest 2>&1 | tee ci-logs/12-release.log
@@ -264,13 +362,13 @@ jobs:
             echo "Job status: ${{ job.status }}"
             echo "Failed stage: $FAILED_STAGE"
             echo "Target: lib/main_rc3_v2.dart"
-            echo "Channel: RC3 v2 phone-safe update"
+            echo "Channel: RC3 v2 + temporary Anonymous Live Beta auth"
             echo "Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             echo
             echo "## Step outcomes"
             echo "- Flutter install: ${{ steps.flutter_install.outcome }}"
             echo "- Android wrapper: ${{ steps.android_wrapper.outcome }}"
-            echo "- Source patch: ${{ steps.source_patch.outcome }}"
+            echo "- Anonymous auth source path: ${{ steps.source_patch.outcome }}"
             echo "- Signing key install: ${{ steps.signing.outcome }}"
             echo "- Pub get: ${{ steps.pub_get.outcome }}"
             echo "- Gradle signing report: ${{ steps.signing_report.outcome }}"
