@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize Supabase client initialization
+      - name: Normalize bootstrap Supabase client initialization
         id: source_patch
         shell: bash
         run: |
@@ -66,11 +66,10 @@ jobs:
           s = p.read_text()
           old = 'anonKey: _supabasePublishableKey,'
           new = 'publishableKey: _supabasePublishableKey,'
-          if old not in s and new not in s:
-              raise SystemExit('Supabase initialization field was not found.')
-          s = s.replace(old, new)
-          p.write_text(s)
-          print('Supabase initialization uses publishableKey. Account null-safety source left intact.')
+          if old in s:
+              s = s.replace(old, new)
+              p.write_text(s)
+          print('Bootstrap fallback normalized; RC3 uses publishableKey natively.')
           PY
 
       - name: Install persistent EVENTO dev signing key
@@ -104,12 +103,13 @@ jobs:
           set -o pipefail
           flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
 
-      - name: Build phone dev APK
+      - name: Build full RC3 phone dev APK
         id: build
         shell: bash
         run: |
           set -o pipefail
           flutter build apk --debug \
+            -t lib/main_rc3.dart \
             --build-number "$GITHUB_RUN_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
             --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
@@ -139,13 +139,13 @@ jobs:
             git tag -f dev-latest "$GITHUB_SHA"
             git push origin -f dev-latest 2>&1 | tee ci-logs/09-release.log
             gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/09-release.log
-            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "Validated phone-first Android build from ${GITHUB_SHA}." 2>&1 | tee -a ci-logs/09-release.log
+            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "Full RC3 phone-first Android build from ${GITHUB_SHA}. Install as an update over the existing EVENTO dev app." 2>&1 | tee -a ci-logs/09-release.log
           else
             gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
               --target "$GITHUB_SHA" \
               --title "EVENTO Dev Latest" \
               --prerelease \
-              --notes "Validated phone-first Android build from ${GITHUB_SHA}." 2>&1 | tee ci-logs/09-release.log
+              --notes "Full RC3 phone-first Android build from ${GITHUB_SHA}. Install as an update over the existing EVENTO dev app." 2>&1 | tee ci-logs/09-release.log
           fi
 
       - name: Upload CI diagnostics
@@ -181,6 +181,7 @@ jobs:
             echo "Run number: $GITHUB_RUN_NUMBER"
             echo "Job status: ${{ job.status }}"
             echo "Failed stage: $FAILED_STAGE"
+            echo "Target: lib/main_rc3.dart"
             echo "Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             echo
             echo "## Step outcomes"
