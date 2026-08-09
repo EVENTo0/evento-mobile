@@ -1,0 +1,1 @@
+RC.3 synchronization has reached the entrypoint switch gate. After main.dart, pubspec.yaml, and tests are updated, GitHub Actions must pass analyze, tests, APK build, artifact publication, and dev-latest release before the phone update is offered.
