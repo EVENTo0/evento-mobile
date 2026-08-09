@@ -1,11 +1,12 @@
 # EVENTO Phone Build Status
 
-Commit: 39e672ea5131d93e6b6dc41f0ae0b398c9ad189a
-Run number: 27
+Commit: 282343e2617564241333e053f8e72f1dcb378a41
+Run number: 1
 Job status: failure
-Failed stage: tests
-Target: lib/main_rc3.dart
-Updated: 2026-08-09T00:23:43Z
+Failed stage: analyze
+Target: lib/main_rc3_v2.dart
+Channel: RC3 v2 phone-safe update
+Updated: 2026-08-09T00:28:54Z
 
 ## Step outcomes
 - Flutter install: success
@@ -13,15 +14,20 @@ Updated: 2026-08-09T00:23:43Z
 - Source patch: success
 - Signing: success
 - Pub get: success
-- Analyze: success
-- Tests: failure
+- Analyze: failure
+- Tests: skipped
 - Build: skipped
 - Artifact: skipped
 - Release: skipped
 
 ## Diagnostic tail
 ```text
-===== ci-logs/01-flutter-install.log =====
+===== ci-logs/01-flutter.log =====
++ source_maps 0.10.13
++ source_span 1.10.2
++ sprintf 7.0.0
++ sse 4.1.8 (4.2.0 available)
++ stack_trace 1.12.1
 + standard_message_codec 0.0.1+4 (0.0.1+5 available)
 + stream_channel 2.1.4
 + string_scanner 1.4.1
@@ -58,6 +64,11 @@ Framework • revision 6b182d2c75 (3 days ago) • 2026-08-05 10:04:07 -0700
 Engine • hash b9499e4c25212536ba3a4eec4f5c1905fb3214fe (revision 5a2a6a42cc) (8 days ago) • 2026-07-31 18:31:59.000Z
 Tools • Dart 3.12.2 • DevTools 2.57.0
 ===== ci-logs/02-android-wrapper.log =====
+  android/settings.gradle.kts (created)
+  android/app/src/debug/AndroidManifest.xml (created)
+  android/app/src/profile/AndroidManifest.xml (created)
+  android/app/src/main/res/values/styles.xml (created)
+  android/app/src/main/res/mipmap-hdpi/ic_launcher.png (created)
   android/app/src/main/res/mipmap-xhdpi/ic_launcher.png (created)
   android/app/src/main/res/drawable-v21/launch_background.xml (created)
   android/app/src/main/res/drawable/launch_background.xml (created)
@@ -93,12 +104,17 @@ In order to run your application, type:
 
 Your application code is in ./lib/main.dart.
 
-===== ci-logs/03-source-patch.log =====
-Bootstrap fallback normalized; RC3 uses publishableKey natively.
+===== ci-logs/03-source.log =====
+RC3 v2 entrypoint uses publishableKey natively; bootstrap fallback normalized for analysis.
 ===== ci-logs/04-signing.log =====
 androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
 Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
 ===== ci-logs/05-pub-get.log =====
++ postgrest 2.8.0 (2.9.1 available)
++ realtime_client 2.11.0 (2.13.0 available)
++ retry 3.1.2
++ rxdart 0.28.0
++ shared_preferences 2.5.5
 + shared_preferences_android 2.4.27
 + shared_preferences_foundation 2.5.6
 + shared_preferences_linux 2.4.1
@@ -136,41 +152,9 @@ Changed 80 dependencies!
 Try `flutter pub outdated` for more information.
 ===== ci-logs/06-analyze.log =====
 Analyzing evento-mobile...                                      
-No issues found! (ran in 9.8s)
-===== ci-logs/07-tests.log =====
-ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
-like a ListView.
-The specific RenderFlex in question is: RenderFlex#c72f7 OVERFLOWING:
-  creator: Column ← Padding ← Listener ← RawGestureDetector ← GestureDetector ← Semantics ←
-    DefaultSelectionStyle ← Builder ← MouseRegion ← Semantics ← _FocusInheritedScope ← Focus ← ⋯
-  parentData: offset=Offset(16.0, 16.0) (can use size)
-  constraints: BoxConstraints(w=228.0, h=180.0)
-  size: Size(228.0, 180.0)
-  direction: vertical
-  mainAxisAlignment: start
-  mainAxisSize: max
-  crossAxisAlignment: start
-  textDirection: ltr
-  verticalDirection: down
-  spacing: 0.0
-◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
-════════════════════════════════════════════════════════════════════════════════════════════════════
-══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following message was thrown:
-Multiple exceptions (39) were detected during the running of the current test, and at least one was
-unexpected.
-════════════════════════════════════════════════════════════════════════════════════════════════════
-00:06 +0 -3: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English [E]
-  Test failed. See exception logs above.
-  The test description was: RC3 switches from Arabic to English
-  
-00:06 +0 -3: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
-00:07 +0 -3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: EVENTO shell loads and navigates to request
-00:08 +1 -3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: language toggle switches navigation labels
-00:09 +2 -3: Some tests failed.
 
-Failing tests:
-  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 analyzes a project request locally
-  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 opens the 50-project customer catalog
-  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/rc3_app.dart:459:22 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/rc3_app.dart:466:20 • curly_braces_in_flow_control_structures
+
+2 issues found. (ran in 9.7s)
 ```
