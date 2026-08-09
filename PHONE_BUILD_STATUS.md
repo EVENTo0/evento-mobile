@@ -1,12 +1,12 @@
 # EVENTO Phone Build Status
 
-Commit: 282343e2617564241333e053f8e72f1dcb378a41
-Run number: 1
-Job status: failure
-Failed stage: analyze
+Commit: 83829f7113bdd9f33abf68b765c6b5148956d060
+Run number: 2
+Job status: success
+Failed stage: none
 Target: lib/main_rc3_v2.dart
 Channel: RC3 v2 phone-safe update
-Updated: 2026-08-09T00:28:54Z
+Updated: 2026-08-09T00:37:07Z
 
 ## Step outcomes
 - Flutter install: success
@@ -14,11 +14,11 @@ Updated: 2026-08-09T00:28:54Z
 - Source patch: success
 - Signing: success
 - Pub get: success
-- Analyze: failure
-- Tests: skipped
-- Build: skipped
-- Artifact: skipped
-- Release: skipped
+- Analyze: success
+- Tests: success
+- Build: success
+- Artifact: success
+- Release: success
 
 ## Diagnostic tail
 ```text
@@ -152,9 +152,36 @@ Changed 80 dependencies!
 Try `flutter pub outdated` for more information.
 ===== ci-logs/06-analyze.log =====
 Analyzing evento-mobile...                                      
-
-   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/rc3_app.dart:459:22 • curly_braces_in_flow_control_structures
-   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/rc3_app.dart:466:20 • curly_braces_in_flow_control_structures
-
-2 issues found. (ran in 9.7s)
+No issues found! (ran in 9.3s)
+===== ci-logs/07-tests.log =====
+00:00 +0: loading /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart
+00:00 +0: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 opens the 50-project customer catalog
+00:01 +1: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 analyzes a project request locally
+00:02 +2: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English
+00:02 +3: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
+00:03 +3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: EVENTO shell loads and navigates to request
+00:05 +4: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: language toggle switches navigation labels
+00:05 +5: All tests passed!
+===== ci-logs/08-build.log =====
+[1/1] Android SDK
+  ├─ [1/6] android-arm-profile/linux-x64                           280ms
+  ├─ [2/6] android-arm-release/linux-x64                           119ms
+  ├─ [3/6] android-arm64-profile/linux-x64                         132ms
+  ├─ [4/6] android-arm64-release/linux-x64                         119ms
+  ├─ [5/6] android-x64-profile/linux-x64                           107ms
+  └─ [6/6] android-x64-release/linux-x64                            90ms
+Running Gradle task 'assembleDebug'...                          
+Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+Running Gradle task 'assembleDebug'...                            348.6s
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+===== ci-logs/09-release.log =====
+To https://github.com/EVENTo0/evento-mobile
+ + 9323504...83829f7 dev-latest -> dev-latest (forced update)
+https://github.com/EVENTo0/evento-mobile/releases/tag/dev-latest
 ```
