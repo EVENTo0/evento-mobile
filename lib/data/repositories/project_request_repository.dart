@@ -58,7 +58,7 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
           'project_type': type,
           'title': title.trim(),
           'details': details.trim(),
-          if (sourceProjectId != null) 'source_project_id': sourceProjectId,
+          'source_project_id': sourceProjectId,
         })
         .select(_columns)
         .single();
