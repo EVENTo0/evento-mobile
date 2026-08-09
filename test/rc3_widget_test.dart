@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:evento_mobile/app.dart';
+import 'package:evento_mobile/rc3_app.dart';
 
 void main() {
   testWidgets('RC3 opens the 50-project customer catalog', (WidgetTester tester) async {
-    await tester.pumpWidget(const EventoApp());
+    await tester.pumpWidget(const EventoRc3App());
 
     expect(find.text('EVENTO'), findsOneWidget);
     await tester.tap(find.text('المشاريع'));
@@ -16,7 +16,7 @@ void main() {
   });
 
   testWidgets('RC3 analyzes a project request locally', (WidgetTester tester) async {
-    await tester.pumpWidget(const EventoApp());
+    await tester.pumpWidget(const EventoRc3App());
 
     await tester.tap(find.text('اطلب'));
     await tester.pumpAndSettle();
@@ -37,7 +37,7 @@ void main() {
   });
 
   testWidgets('RC3 switches from Arabic to English', (WidgetTester tester) async {
-    await tester.pumpWidget(const EventoApp());
+    await tester.pumpWidget(const EventoRc3App());
 
     await tester.tap(find.byTooltip('English'));
     await tester.pumpAndSettle();
