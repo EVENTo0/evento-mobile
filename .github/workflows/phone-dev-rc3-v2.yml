@@ -18,6 +18,7 @@ env:
   FLUTTER_VERSION: '3.44.9'
   EVENTO_APPLICATION_ID: 'ae.evento.evento_mobile'
   EVENTO_DEV_CERT_SHA256: 'bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36'
+  EVENTO_DEV_CERT_SHA256_COLON: 'BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36'
 
 jobs:
   android-dev:
@@ -70,15 +71,43 @@ jobs:
           print('RC3 v2 entrypoint uses publishableKey natively; bootstrap fallback normalized for analysis.')
           PY
 
-      - name: Install persistent EVENTO dev signing identity
+      - name: Install and force persistent EVENTO dev signing identity
         id: signing
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           mkdir -p "$HOME/.android"
           base64 --decode tool/dev_signing/evento-debug.keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>&1 | tee ci-logs/04-signing.log
+
+          python3 - <<'PY' 2>&1 | tee -a ci-logs/04-signing.log
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          marker = 'android {\n'
+          block = '''android {
+              signingConfigs {
+                  create("eventoDev") {
+                      storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                      storePassword = "android"
+                      keyAlias = "androiddebugkey"
+                      keyPassword = "android"
+                  }
+              }
+              buildTypes {
+                  getByName("debug") {
+                      signingConfig = signingConfigs.getByName("eventoDev")
+                  }
+              }
+          '''
+          if marker not in s:
+              raise SystemExit('android block not found in generated Gradle file')
+          if 'create("eventoDev")' not in s:
+              s = s.replace(marker, block, 1)
+              p.write_text(s)
+          print('Pinned Android debug buildType explicitly to EVENTO eventoDev signing config.')
+          PY
 
       - name: Resolve dependencies
         id: pub_get
@@ -87,34 +116,41 @@ jobs:
           set -o pipefail
           flutter pub get 2>&1 | tee ci-logs/05-pub-get.log
 
+      - name: Verify Gradle signing report
+        id: signing_report
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd android && ./gradlew signingReport) 2>&1 | tee ci-logs/06-signing-report.log
+          grep -Fq "$EVENTO_DEV_CERT_SHA256_COLON" ci-logs/06-signing-report.log
+          grep -Fq 'Variant: debug' ci-logs/06-signing-report.log
+
       - name: Strict static analysis
         id: analyze
         shell: bash
         run: |
           set -o pipefail
-          flutter analyze 2>&1 | tee ci-logs/06-analyze.log
+          flutter analyze 2>&1 | tee ci-logs/07-analyze.log
 
       - name: Run all Flutter tests
         id: tests
         shell: bash
         run: |
           set -o pipefail
-          flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
+          flutter test --reporter expanded 2>&1 | tee ci-logs/08-tests.log
 
       - name: Generate monotonic Android version code
         id: version_code
         shell: bash
         run: |
           set -euo pipefail
-          # Epoch/10 gives a strictly increasing Android versionCode across workflow
-          # renames/resets while staying well below Android's versionCode ceiling.
           EVENTO_BUILD_NUMBER=$(( $(date -u +%s) / 10 ))
           if [ "$EVENTO_BUILD_NUMBER" -le 7 ]; then
             echo "Generated versionCode must be greater than the already-installed baseline (7)." >&2
             exit 1
           fi
           echo "EVENTO_BUILD_NUMBER=$EVENTO_BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/08-version-code.log
+          echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/09-version-code.log
 
       - name: Build RC3 v2 update APK
         id: build
@@ -127,7 +163,7 @@ jobs:
             --build-number "$EVENTO_BUILD_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
             --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
-            2>&1 | tee ci-logs/09-build.log
+            2>&1 | tee ci-logs/10-build.log
           cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
           sha256sum evento-dev.apk | tee evento-dev.apk.sha256
 
@@ -142,18 +178,18 @@ jobs:
           test -x "$APKSIGNER"
 
           BADGING="$($AAPT dump badging evento-dev.apk | head -n 1)"
-          echo "$BADGING" | tee ci-logs/10-apk-identity.log
+          echo "$BADGING" | tee ci-logs/11-apk-identity.log
           echo "$BADGING" | grep -q "package: name='$EVENTO_APPLICATION_ID'"
 
           APK_VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
           test "$APK_VERSION_CODE" = "$EVENTO_BUILD_NUMBER"
           test "$APK_VERSION_CODE" -gt 7
 
-          "$APKSIGNER" verify --print-certs evento-dev.apk 2>&1 | tee -a ci-logs/10-apk-identity.log
-          CERT_DIGEST="$($APKSIGNER verify --print-certs evento-dev.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          "$APKSIGNER" verify --print-certs evento-dev.apk 2>&1 | tee -a ci-logs/11-apk-identity.log
+          CERT_DIGEST="$($APKSIGNER verify --print-certs evento-dev.apk 2>/dev/null | sed -n 's/^V2 Signer: certificate SHA-256 digest: //p; s/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           test "$CERT_DIGEST" = "$EVENTO_DEV_CERT_SHA256"
 
-          echo "Verified applicationId=$EVENTO_APPLICATION_ID versionCode=$APK_VERSION_CODE cert=$CERT_DIGEST" | tee -a ci-logs/10-apk-identity.log
+          echo "Verified applicationId=$EVENTO_APPLICATION_ID versionCode=$APK_VERSION_CODE cert=$CERT_DIGEST" | tee -a ci-logs/11-apk-identity.log
 
       - name: Upload APK artifact
         id: artifact
@@ -173,22 +209,19 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          RELEASE_NOTES="RC3 v2 phone-safe update from ${GITHUB_SHA}. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Install over the existing EVENTO app; do not uninstall it."
+          RELEASE_NOTES="RC3 v2 phone-safe update from ${GITHUB_SHA}. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Certificate ${EVENTO_DEV_CERT_SHA256}. Install over the existing EVENTO app; do not uninstall it."
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
-            git push origin -f dev-latest 2>&1 | tee ci-logs/11-release.log
-            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/11-release.log
-            gh release edit dev-latest \
-              --title "EVENTO Dev Latest" \
-              --notes "$RELEASE_NOTES" \
-              2>&1 | tee -a ci-logs/11-release.log
+            git push origin -f dev-latest 2>&1 | tee ci-logs/12-release.log
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/12-release.log
+            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "$RELEASE_NOTES" 2>&1 | tee -a ci-logs/12-release.log
           else
             gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
               --target "$GITHUB_SHA" \
               --title "EVENTO Dev Latest" \
               --prerelease \
               --notes "$RELEASE_NOTES" \
-              2>&1 | tee ci-logs/11-release.log
+              2>&1 | tee ci-logs/12-release.log
           fi
 
       - name: Upload CI diagnostics
@@ -210,6 +243,7 @@ jobs:
           elif [ "${{ steps.source_patch.outcome }}" = "failure" ]; then FAILED_STAGE="source_patch";
           elif [ "${{ steps.signing.outcome }}" = "failure" ]; then FAILED_STAGE="signing";
           elif [ "${{ steps.pub_get.outcome }}" = "failure" ]; then FAILED_STAGE="pub_get";
+          elif [ "${{ steps.signing_report.outcome }}" = "failure" ]; then FAILED_STAGE="signing_report";
           elif [ "${{ steps.analyze.outcome }}" = "failure" ]; then FAILED_STAGE="analyze";
           elif [ "${{ steps.tests.outcome }}" = "failure" ]; then FAILED_STAGE="tests";
           elif [ "${{ steps.version_code.outcome }}" = "failure" ]; then FAILED_STAGE="version_code";
@@ -226,6 +260,7 @@ jobs:
             echo "Run number: $GITHUB_RUN_NUMBER"
             echo "Android versionCode: ${EVENTO_BUILD_NUMBER:-not-generated}"
             echo "Application ID: $EVENTO_APPLICATION_ID"
+            echo "Expected dev cert: $EVENTO_DEV_CERT_SHA256"
             echo "Job status: ${{ job.status }}"
             echo "Failed stage: $FAILED_STAGE"
             echo "Target: lib/main_rc3_v2.dart"
@@ -236,8 +271,9 @@ jobs:
             echo "- Flutter install: ${{ steps.flutter_install.outcome }}"
             echo "- Android wrapper: ${{ steps.android_wrapper.outcome }}"
             echo "- Source patch: ${{ steps.source_patch.outcome }}"
-            echo "- Signing: ${{ steps.signing.outcome }}"
+            echo "- Signing key install: ${{ steps.signing.outcome }}"
             echo "- Pub get: ${{ steps.pub_get.outcome }}"
+            echo "- Gradle signing report: ${{ steps.signing_report.outcome }}"
             echo "- Analyze: ${{ steps.analyze.outcome }}"
             echo "- Tests: ${{ steps.tests.outcome }}"
             echo "- Version code: ${{ steps.version_code.outcome }}"
