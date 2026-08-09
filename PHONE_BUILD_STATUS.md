@@ -1,10 +1,11 @@
 # EVENTO Phone Build Status
 
-Commit: 932350464dc7058d2ea50d804408ba927735fae7
-Run number: 7
-Job status: success
-Failed stage: none
-Updated: 2026-08-08T22:37:19Z
+Commit: 1d4dcb8f4c6007fb9a6dc43778f4920609f73ace
+Run number: 25
+Job status: failure
+Failed stage: analyze
+Target: lib/main_rc3.dart
+Updated: 2026-08-09T00:20:17Z
 
 ## Step outcomes
 - Flutter install: success
@@ -12,11 +13,11 @@ Updated: 2026-08-08T22:37:19Z
 - Source patch: success
 - Signing: success
 - Pub get: success
-- Analyze: success
-- Tests: success
-- Build: success
-- Artifact: success
-- Release: success
+- Analyze: failure
+- Tests: skipped
+- Build: skipped
+- Artifact: skipped
+- Release: skipped
 
 ## Diagnostic tail
 ```text
@@ -93,7 +94,7 @@ In order to run your application, type:
 Your application code is in ./lib/main.dart.
 
 ===== ci-logs/03-source-patch.log =====
-Supabase initialization uses publishableKey. Account null-safety source left intact.
+Bootstrap fallback normalized; RC3 uses publishableKey natively.
 ===== ci-logs/04-signing.log =====
 androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
 Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
@@ -135,30 +136,9 @@ Changed 80 dependencies!
 Try `flutter pub outdated` for more information.
 ===== ci-logs/06-analyze.log =====
 Analyzing evento-mobile...                                      
-No issues found! (ran in 6.9s)
-===== ci-logs/07-tests.log =====
-00:00 +0: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
-00:00 +0: EVENTO shell loads and navigates to request
-00:00 +1: language toggle switches navigation labels
-00:01 +2: All tests passed!
-===== ci-logs/08-build.log =====
-[1/1] Android SDK
-  ├─ [1/6] android-arm-profile/linux-x64                           281ms
-  ├─ [2/6] android-arm-release/linux-x64                           127ms
-  ├─ [3/6] android-arm64-profile/linux-x64                         139ms
-  ├─ [4/6] android-arm64-release/linux-x64                         115ms
-  ├─ [5/6] android-x64-profile/linux-x64                           125ms
-  └─ [6/6] android-x64-release/linux-x64                           107ms
-Running Gradle task 'assembleDebug'...                          
-Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
-License for package CMake 3.22.1 accepted.
-Preparing "Install CMake 3.22.1 v.3.22.1".
-"Install CMake 3.22.1 v.3.22.1" ready.
-Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
-"Install CMake 3.22.1 v.3.22.1" complete.
-"Install CMake 3.22.1 v.3.22.1" finished.
-Running Gradle task 'assembleDebug'...                            310.0s
-✓ Built build/app/outputs/flutter-apk/app-debug.apk
-===== ci-logs/09-release.log =====
-https://github.com/EVENTo0/evento-mobile/releases/tag/dev-latest
+
+   info • Use the null-aware marker '?' rather than a null check via an 'if'. Try using '?' • lib/data/repositories/project_request_repository.dart:61:11 • use_null_aware_elements
+   info • Unnecessary use of multiple underscores. Try using '_' • lib/features/screens.dart:90:35 • unnecessary_underscores
+
+2 issues found. (ran in 9.2s)
 ```
