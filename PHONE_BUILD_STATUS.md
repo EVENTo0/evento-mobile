@@ -1,28 +1,30 @@
 # EVENTO Phone Build Status
 
-Commit: ba1a36eebfec943ef0952a1725b18cdc86c44340
-Run number: 3
-Android versionCode: 178625199
+Commit: 0f5710582c5e39effd994326e9da0d919780fcde
+Run number: 6
+Android versionCode: 178625293
 Application ID: ae.evento.evento_mobile
-Job status: failure
-Failed stage: apk_verify
+Expected dev cert: bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36
+Job status: success
+Failed stage: none
 Target: lib/main_rc3_v2.dart
 Channel: RC3 v2 phone-safe update
-Updated: 2026-08-09T05:12:43Z
+Updated: 2026-08-09T05:25:30Z
 
 ## Step outcomes
 - Flutter install: success
 - Android wrapper: success
 - Source patch: success
-- Signing: success
+- Signing key install: success
 - Pub get: success
+- Gradle signing report: success
 - Analyze: success
 - Tests: success
 - Version code: success
 - Build: success
-- APK identity verification: failure
-- Artifact: skipped
-- Release: skipped
+- APK identity verification: success
+- Artifact: success
+- Release: success
 
 ## Diagnostic tail
 ```text
@@ -113,6 +115,7 @@ RC3 v2 entrypoint uses publishableKey natively; bootstrap fallback normalized fo
 ===== ci-logs/04-signing.log =====
 androiddebugkey, Aug 8, 2026, PrivateKeyEntry, 
 Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
+Pinned Android debug buildType explicitly to EVENTO eventoDev signing config.
 ===== ci-logs/05-pub-get.log =====
 + postgrest 2.8.0 (2.9.1 available)
 + realtime_client 2.11.0 (2.13.0 available)
@@ -154,28 +157,69 @@ Certificate fingerprint (SHA-256): BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:
 Changed 80 dependencies!
 11 packages have newer versions incompatible with dependency constraints.
 Try `flutter pub outdated` for more information.
-===== ci-logs/06-analyze.log =====
+===== ci-logs/06-signing-report.log =====
+----------
+Variant: debugAndroidTest
+Config: eventoDev
+Store: /home/runner/.android/debug.keystore
+Alias: androiddebugkey
+MD5: B3:B7:8C:A1:9E:A7:5E:7E:05:35:C3:DB:AD:77:91:3C
+SHA1: B9:FF:A7:FC:81:EC:4C:0E:C1:B0:F2:F9:65:C3:54:74:C9:61:A9:BC
+SHA-256: BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36
+Valid until: Wednesday, December 24, 2053
+----------
+
+> Task :app_links:signingReport
+Variant: debugAndroidTest
+Config: debug
+Store: /home/runner/.config/.android/debug.keystore
+Alias: AndroidDebugKey
+Error: Missing keystore
+----------
+
+> Task :shared_preferences_android:signingReport
+Variant: debugAndroidTest
+Config: debug
+Store: /home/runner/.config/.android/debug.keystore
+Alias: AndroidDebugKey
+Error: Missing keystore
+----------
+
+> Task :url_launcher_android:signingReport
+Variant: debugAndroidTest
+Config: debug
+Store: /home/runner/.config/.android/debug.keystore
+Alias: AndroidDebugKey
+Error: Missing keystore
+----------
+
+[Incubating] Problems report is available at: file:///home/runner/work/evento-mobile/evento-mobile/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 2m 40s
+8 actionable tasks: 8 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.1.0/userguide/configuration_cache_enabling.html
+===== ci-logs/07-analyze.log =====
 Analyzing evento-mobile...                                      
-No issues found! (ran in 9.6s)
-===== ci-logs/07-tests.log =====
+No issues found! (ran in 10.1s)
+===== ci-logs/08-tests.log =====
 00:00 +0: loading /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart
 00:00 +0: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 opens the 50-project customer catalog
 00:01 +1: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 analyzes a project request locally
-00:02 +2: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English
+00:01 +2: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English
 00:02 +3: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
 00:03 +3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: EVENTO shell loads and navigates to request
 00:04 +4: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: language toggle switches navigation labels
-00:05 +5: All tests passed!
-===== ci-logs/08-version-code.log =====
-Android versionCode: 178625199
-===== ci-logs/09-build.log =====
+00:04 +5: All tests passed!
+===== ci-logs/09-version-code.log =====
+Android versionCode: 178625293
+===== ci-logs/10-build.log =====
 [1/1] Android SDK
-  ├─ [1/6] android-arm-profile/linux-x64                           432ms
-  ├─ [2/6] android-arm-release/linux-x64                           168ms
-  ├─ [3/6] android-arm64-profile/linux-x64                         252ms
-  ├─ [4/6] android-arm64-release/linux-x64                         134ms
-  ├─ [5/6] android-x64-profile/linux-x64                           134ms
-  └─ [6/6] android-x64-release/linux-x64                           121ms
+  ├─ [1/6] android-arm-profile/linux-x64                           235ms
+  ├─ [2/6] android-arm-release/linux-x64                            99ms
+  ├─ [3/6] android-arm64-profile/linux-x64                         117ms
+  ├─ [4/6] android-arm64-release/linux-x64                         144ms
+  ├─ [5/6] android-x64-profile/linux-x64                            86ms
+  └─ [6/6] android-x64-release/linux-x64                            74ms
 Running Gradle task 'assembleDebug'...                          
 Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
 License for package CMake 3.22.1 accepted.
@@ -184,12 +228,17 @@ Preparing "Install CMake 3.22.1 v.3.22.1".
 Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
 "Install CMake 3.22.1 v.3.22.1" complete.
 "Install CMake 3.22.1 v.3.22.1" finished.
-Running Gradle task 'assembleDebug'...                            357.9s
+Running Gradle task 'assembleDebug'...                            178.7s
 ✓ Built build/app/outputs/flutter-apk/app-debug.apk
-===== ci-logs/10-apk-identity.log =====
-package: name='ae.evento.evento_mobile' versionCode='178625199' versionName='0.9.0-rc.3' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
-V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
-V2 Signer: certificate SHA-256 digest: 20dd7c1163cf156fd4ca4a7fafd625175b7a8088985a034caa929a6e9b5f12ad
-V2 Signer: certificate SHA-1 digest: f4e719eddde776bec2ead3e217c2b5c739143413
-V2 Signer: certificate MD5 digest: abd39e681cfd8628f623d1d0687014ea
+===== ci-logs/11-apk-identity.log =====
+package: name='ae.evento.evento_mobile' versionCode='178625293' versionName='0.9.0-rc.3' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+V2 Signer: certificate DN: CN=EVENTO Dev, O=EVENTO Project Development, C=AE
+V2 Signer: certificate SHA-256 digest: bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36
+V2 Signer: certificate SHA-1 digest: b9ffa7fc81ec4c0ec1b0f2f965c35474c961a9bc
+V2 Signer: certificate MD5 digest: b3b78ca19ea75e7e0535c3dbad77913c
+Verified applicationId=ae.evento.evento_mobile versionCode=178625293 cert=bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36
+===== ci-logs/12-release.log =====
+To https://github.com/EVENTo0/evento-mobile
+ + 83829f7...0f57105 dev-latest -> dev-latest (forced update)
+https://github.com/EVENTo0/evento-mobile/releases/tag/dev-latest
 ```
