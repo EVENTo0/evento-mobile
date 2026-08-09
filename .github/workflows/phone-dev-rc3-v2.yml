@@ -1,0 +1,214 @@
+name: EVENTO Phone Dev APK (RC3 v2)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: evento-phone-dev-rc3-v2
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.9'
+
+jobs:
+  android-dev:
+    name: Validate full RC3 v2 and build phone update APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout EVENTO
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install pinned Flutter
+        id: flutter_install
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ci-logs
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter" 2>&1 | tee ci-logs/01-flutter.log
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics 2>&1 | tee -a ci-logs/01-flutter.log
+          "$RUNNER_TEMP/flutter/bin/flutter" --version 2>&1 | tee -a ci-logs/01-flutter.log
+
+      - name: Generate Android platform wrapper
+        id: android_wrapper
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
+
+      - name: Normalize bootstrap fallback only
+        id: source_patch
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 - <<'PY' 2>&1 | tee ci-logs/03-source.log
+          from pathlib import Path
+          p = Path('lib/main.dart')
+          if p.exists():
+              s = p.read_text()
+              s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
+              p.write_text(s)
+          print('RC3 v2 entrypoint uses publishableKey natively; bootstrap fallback normalized for analysis.')
+          PY
+
+      - name: Install persistent EVENTO dev signing identity
+        id: signing
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode tool/dev_signing/evento-debug.keystore.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>&1 | tee ci-logs/04-signing.log
+
+      - name: Resolve dependencies
+        id: pub_get
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee ci-logs/05-pub-get.log
+
+      - name: Strict static analysis
+        id: analyze
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze 2>&1 | tee ci-logs/06-analyze.log
+
+      - name: Run all Flutter tests
+        id: tests
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
+
+      - name: Build RC3 v2 update APK
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --debug \
+            -t lib/main_rc3_v2.dart \
+            --build-number "$GITHUB_RUN_NUMBER" \
+            --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
+            2>&1 | tee ci-logs/08-build.log
+          cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
+          sha256sum evento-dev.apk | tee evento-dev.apk.sha256
+
+      - name: Upload APK artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-dev-apk-rc3-v2
+          path: |
+            evento-dev.apk
+            evento-dev.apk.sha256
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish permanent dev-latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -o pipefail
+          if gh release view dev-latest >/dev/null 2>&1; then
+            git tag -f dev-latest "$GITHUB_SHA"
+            git push origin -f dev-latest 2>&1 | tee ci-logs/09-release.log
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/09-release.log
+            gh release edit dev-latest \
+              --title "EVENTO Dev Latest" \
+              --notes "RC3 v2 phone-safe update from ${GITHUB_SHA}. Install over the existing EVENTO app; do not uninstall it." \
+              2>&1 | tee -a ci-logs/09-release.log
+          else
+            gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
+              --target "$GITHUB_SHA" \
+              --title "EVENTO Dev Latest" \
+              --prerelease \
+              --notes "RC3 v2 phone-safe update from ${GITHUB_SHA}. Install over the existing EVENTO app; do not uninstall it." \
+              2>&1 | tee ci-logs/09-release.log
+          fi
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-rc3-v2-diagnostics-${{ github.run_number }}
+          path: ci-logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Record phone build status
+        if: always()
+        shell: bash
+        run: |
+          FAILED_STAGE="none"
+          if [ "${{ steps.flutter_install.outcome }}" = "failure" ]; then FAILED_STAGE="flutter_install";
+          elif [ "${{ steps.android_wrapper.outcome }}" = "failure" ]; then FAILED_STAGE="android_wrapper";
+          elif [ "${{ steps.source_patch.outcome }}" = "failure" ]; then FAILED_STAGE="source_patch";
+          elif [ "${{ steps.signing.outcome }}" = "failure" ]; then FAILED_STAGE="signing";
+          elif [ "${{ steps.pub_get.outcome }}" = "failure" ]; then FAILED_STAGE="pub_get";
+          elif [ "${{ steps.analyze.outcome }}" = "failure" ]; then FAILED_STAGE="analyze";
+          elif [ "${{ steps.tests.outcome }}" = "failure" ]; then FAILED_STAGE="tests";
+          elif [ "${{ steps.build.outcome }}" = "failure" ]; then FAILED_STAGE="build";
+          elif [ "${{ steps.artifact.outcome }}" = "failure" ]; then FAILED_STAGE="artifact";
+          elif [ "${{ steps.release.outcome }}" = "failure" ]; then FAILED_STAGE="release";
+          fi
+
+          {
+            echo "# EVENTO Phone Build Status"
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Run number: $GITHUB_RUN_NUMBER"
+            echo "Job status: ${{ job.status }}"
+            echo "Failed stage: $FAILED_STAGE"
+            echo "Target: lib/main_rc3_v2.dart"
+            echo "Channel: RC3 v2 phone-safe update"
+            echo "Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo
+            echo "## Step outcomes"
+            echo "- Flutter install: ${{ steps.flutter_install.outcome }}"
+            echo "- Android wrapper: ${{ steps.android_wrapper.outcome }}"
+            echo "- Source patch: ${{ steps.source_patch.outcome }}"
+            echo "- Signing: ${{ steps.signing.outcome }}"
+            echo "- Pub get: ${{ steps.pub_get.outcome }}"
+            echo "- Analyze: ${{ steps.analyze.outcome }}"
+            echo "- Tests: ${{ steps.tests.outcome }}"
+            echo "- Build: ${{ steps.build.outcome }}"
+            echo "- Artifact: ${{ steps.artifact.outcome }}"
+            echo "- Release: ${{ steps.release.outcome }}"
+            echo
+            echo "## Diagnostic tail"
+            echo '```text'
+            for f in ci-logs/*.log; do
+              [ -f "$f" ] || continue
+              echo "===== $f ====="
+              tail -n 40 "$f"
+            done
+            echo '```'
+          } > PHONE_BUILD_STATUS.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PHONE_BUILD_STATUS.md
+          git commit -m "ci: record RC3 v2 phone build diagnostics [skip ci]" || exit 0
+          git push || true
