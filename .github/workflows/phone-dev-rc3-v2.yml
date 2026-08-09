@@ -16,6 +16,8 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.44.9'
+  EVENTO_APPLICATION_ID: 'ae.evento.evento_mobile'
+  EVENTO_DEV_CERT_SHA256: 'bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36'
 
 jobs:
   android-dev:
@@ -99,6 +101,21 @@ jobs:
           set -o pipefail
           flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
 
+      - name: Generate monotonic Android version code
+        id: version_code
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Epoch/10 gives a strictly increasing Android versionCode across workflow
+          # renames/resets while staying well below Android's versionCode ceiling.
+          EVENTO_BUILD_NUMBER=$(( $(date -u +%s) / 10 ))
+          if [ "$EVENTO_BUILD_NUMBER" -le 7 ]; then
+            echo "Generated versionCode must be greater than the already-installed baseline (7)." >&2
+            exit 1
+          fi
+          echo "EVENTO_BUILD_NUMBER=$EVENTO_BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/08-version-code.log
+
       - name: Build RC3 v2 update APK
         id: build
         shell: bash
@@ -106,12 +123,37 @@ jobs:
           set -o pipefail
           flutter build apk --debug \
             -t lib/main_rc3_v2.dart \
-            --build-number "$GITHUB_RUN_NUMBER" \
+            --build-name "0.9.0-rc.3" \
+            --build-number "$EVENTO_BUILD_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
             --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
-            2>&1 | tee ci-logs/08-build.log
+            2>&1 | tee ci-logs/09-build.log
           cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
           sha256sum evento-dev.apk | tee evento-dev.apk.sha256
+
+      - name: Verify APK package, version and signing certificate
+        id: apk_verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+
+          BADGING="$($AAPT dump badging evento-dev.apk | head -n 1)"
+          echo "$BADGING" | tee ci-logs/10-apk-identity.log
+          echo "$BADGING" | grep -q "package: name='$EVENTO_APPLICATION_ID'"
+
+          APK_VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          test "$APK_VERSION_CODE" = "$EVENTO_BUILD_NUMBER"
+          test "$APK_VERSION_CODE" -gt 7
+
+          "$APKSIGNER" verify --print-certs evento-dev.apk 2>&1 | tee -a ci-logs/10-apk-identity.log
+          CERT_DIGEST="$($APKSIGNER verify --print-certs evento-dev.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          test "$CERT_DIGEST" = "$EVENTO_DEV_CERT_SHA256"
+
+          echo "Verified applicationId=$EVENTO_APPLICATION_ID versionCode=$APK_VERSION_CODE cert=$CERT_DIGEST" | tee -a ci-logs/10-apk-identity.log
 
       - name: Upload APK artifact
         id: artifact
@@ -131,21 +173,22 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          RELEASE_NOTES="RC3 v2 phone-safe update from ${GITHUB_SHA}. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Install over the existing EVENTO app; do not uninstall it."
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
-            git push origin -f dev-latest 2>&1 | tee ci-logs/09-release.log
-            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/09-release.log
+            git push origin -f dev-latest 2>&1 | tee ci-logs/11-release.log
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/11-release.log
             gh release edit dev-latest \
               --title "EVENTO Dev Latest" \
-              --notes "RC3 v2 phone-safe update from ${GITHUB_SHA}. Install over the existing EVENTO app; do not uninstall it." \
-              2>&1 | tee -a ci-logs/09-release.log
+              --notes "$RELEASE_NOTES" \
+              2>&1 | tee -a ci-logs/11-release.log
           else
             gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
               --target "$GITHUB_SHA" \
               --title "EVENTO Dev Latest" \
               --prerelease \
-              --notes "RC3 v2 phone-safe update from ${GITHUB_SHA}. Install over the existing EVENTO app; do not uninstall it." \
-              2>&1 | tee ci-logs/09-release.log
+              --notes "$RELEASE_NOTES" \
+              2>&1 | tee ci-logs/11-release.log
           fi
 
       - name: Upload CI diagnostics
@@ -169,7 +212,9 @@ jobs:
           elif [ "${{ steps.pub_get.outcome }}" = "failure" ]; then FAILED_STAGE="pub_get";
           elif [ "${{ steps.analyze.outcome }}" = "failure" ]; then FAILED_STAGE="analyze";
           elif [ "${{ steps.tests.outcome }}" = "failure" ]; then FAILED_STAGE="tests";
+          elif [ "${{ steps.version_code.outcome }}" = "failure" ]; then FAILED_STAGE="version_code";
           elif [ "${{ steps.build.outcome }}" = "failure" ]; then FAILED_STAGE="build";
+          elif [ "${{ steps.apk_verify.outcome }}" = "failure" ]; then FAILED_STAGE="apk_verify";
           elif [ "${{ steps.artifact.outcome }}" = "failure" ]; then FAILED_STAGE="artifact";
           elif [ "${{ steps.release.outcome }}" = "failure" ]; then FAILED_STAGE="release";
           fi
@@ -179,6 +224,8 @@ jobs:
             echo
             echo "Commit: $GITHUB_SHA"
             echo "Run number: $GITHUB_RUN_NUMBER"
+            echo "Android versionCode: ${EVENTO_BUILD_NUMBER:-not-generated}"
+            echo "Application ID: $EVENTO_APPLICATION_ID"
             echo "Job status: ${{ job.status }}"
             echo "Failed stage: $FAILED_STAGE"
             echo "Target: lib/main_rc3_v2.dart"
@@ -193,7 +240,9 @@ jobs:
             echo "- Pub get: ${{ steps.pub_get.outcome }}"
             echo "- Analyze: ${{ steps.analyze.outcome }}"
             echo "- Tests: ${{ steps.tests.outcome }}"
+            echo "- Version code: ${{ steps.version_code.outcome }}"
             echo "- Build: ${{ steps.build.outcome }}"
+            echo "- APK identity verification: ${{ steps.apk_verify.outcome }}"
             echo "- Artifact: ${{ steps.artifact.outcome }}"
             echo "- Release: ${{ steps.release.outcome }}"
             echo
