@@ -1,11 +1,11 @@
 # EVENTO Phone Build Status
 
-Commit: 1d4dcb8f4c6007fb9a6dc43778f4920609f73ace
-Run number: 25
+Commit: 39e672ea5131d93e6b6dc41f0ae0b398c9ad189a
+Run number: 27
 Job status: failure
-Failed stage: analyze
+Failed stage: tests
 Target: lib/main_rc3.dart
-Updated: 2026-08-09T00:20:17Z
+Updated: 2026-08-09T00:23:43Z
 
 ## Step outcomes
 - Flutter install: success
@@ -13,8 +13,8 @@ Updated: 2026-08-09T00:20:17Z
 - Source patch: success
 - Signing: success
 - Pub get: success
-- Analyze: failure
-- Tests: skipped
+- Analyze: success
+- Tests: failure
 - Build: skipped
 - Artifact: skipped
 - Release: skipped
@@ -136,9 +136,41 @@ Changed 80 dependencies!
 Try `flutter pub outdated` for more information.
 ===== ci-logs/06-analyze.log =====
 Analyzing evento-mobile...                                      
+No issues found! (ran in 9.8s)
+===== ci-logs/07-tests.log =====
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#c72f7 OVERFLOWING:
+  creator: Column ← Padding ← Listener ← RawGestureDetector ← GestureDetector ← Semantics ←
+    DefaultSelectionStyle ← Builder ← MouseRegion ← Semantics ← _FocusInheritedScope ← Focus ← ⋯
+  parentData: offset=Offset(16.0, 16.0) (can use size)
+  constraints: BoxConstraints(w=228.0, h=180.0)
+  size: Size(228.0, 180.0)
+  direction: vertical
+  mainAxisAlignment: start
+  mainAxisSize: max
+  crossAxisAlignment: start
+  textDirection: ltr
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (39) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +0 -3: /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English [E]
+  Test failed. See exception logs above.
+  The test description was: RC3 switches from Arabic to English
+  
+00:06 +0 -3: loading /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart
+00:07 +0 -3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: EVENTO shell loads and navigates to request
+00:08 +1 -3: /home/runner/work/evento-mobile/evento-mobile/test/widget_test.dart: language toggle switches navigation labels
+00:09 +2 -3: Some tests failed.
 
-   info • Use the null-aware marker '?' rather than a null check via an 'if'. Try using '?' • lib/data/repositories/project_request_repository.dart:61:11 • use_null_aware_elements
-   info • Unnecessary use of multiple underscores. Try using '_' • lib/features/screens.dart:90:35 • unnecessary_underscores
-
-2 issues found. (ran in 9.2s)
+Failing tests:
+  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 analyzes a project request locally
+  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 opens the 50-project customer catalog
+  /home/runner/work/evento-mobile/evento-mobile/test/rc3_widget_test.dart: RC3 switches from Arabic to English
 ```
