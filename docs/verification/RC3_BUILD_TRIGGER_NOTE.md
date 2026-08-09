@@ -1,0 +1,1 @@
+The repository is being switched from the verified bootstrap shell to the full RC.3 customer application. Do not uninstall the currently installed EVENTO app; the next successful dev-latest APK is intended to verify in-place update behavior.
