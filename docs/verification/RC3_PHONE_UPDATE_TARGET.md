@@ -1,0 +1,1 @@
+Target: build and install EVENTO RC.3 over the already installed bootstrap APK without uninstalling. Package identity remains ae.evento.evento_mobile; development signing identity remains fingerprint BA:C5:A3:17:AC:D9:28:6A:A3:46:26:8D:AF:F0:46:3D:AE:65:39:32:F4:83:84:5E:12:99:55:DE:4D:06:9A:36.
