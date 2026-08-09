@@ -1,0 +1,5 @@
+EVENTO phone build trigger
+reason=android-versioncode-monotonic-fix
+baseline_installed_version_code=7
+expected_application_id=ae.evento.evento_mobile
+expected_dev_cert_sha256=bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36
