@@ -1,4 +1,4 @@
-name: EVENTO Phone Dev APK (RC5)
+name: EVENTO Phone Dev APK (RC6)
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: evento-phone-dev-rc5
+  group: evento-phone-dev-rc6
   cancel-in-progress: true
 
 env:
@@ -22,7 +22,7 @@ env:
 
 jobs:
   android-dev:
-    name: Validate RC5 and build phone update APK
+    name: Validate RC6 and build phone update APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -82,16 +82,19 @@ jobs:
           set -euo pipefail
           flutter pub get 2>&1 | tee ci-logs/03-pub-get.log
 
-      - name: Verify RC5 source contract
-        id: rc5_contract
+      - name: Verify RC6 source contract
+        id: rc6_contract
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq "evento-heuristic-v1.0-rc5" test/rc5_widget_test.dart
-          grep -Fq "Upgrade analysis to bilingual RC5" lib/rc5_app.dart
-          grep -Fq "summary_ar" lib/data/repositories/project_request_repository.dart
-          grep -Fq "note_ar" lib/data/repositories/project_request_repository.dart
-          echo "RC5 bilingual source contract verified." | tee ci-logs/03b-rc5-contract.log
+          test -f lib/main_rc6.dart
+          test -f lib/rc6_app.dart
+          test -f lib/domain/project_workflow.dart
+          grep -Fq "start_project_workflow" lib/data/repositories/project_request_repository.dart
+          grep -Fq "approve_project_scope" lib/data/repositories/project_request_repository.dart
+          grep -Fq "Project Workflow Center" lib/rc6_app.dart
+          grep -Fq "scope_review" test/rc6_workflow_test.dart
+          echo "RC6 workflow source contract verified." | tee ci-logs/03b-rc6-contract.log
 
       - name: Install persistent EVENTO dev signing identity
         id: signing
@@ -161,14 +164,14 @@ jobs:
           echo "EVENTO_BUILD_NUMBER=$EVENTO_BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/08-version-code.log
 
-      - name: Build RC5 update APK
+      - name: Build RC6 update APK
         id: build
         shell: bash
         run: |
           set -euo pipefail
           flutter build apk --debug \
-            -t lib/main_rc5.dart \
-            --build-name "0.9.0-rc.5" \
+            -t lib/main_rc6.dart \
+            --build-name "0.9.0-rc.6" \
             --build-number "$EVENTO_BUILD_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
             --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
@@ -196,7 +199,7 @@ jobs:
         id: artifact
         uses: actions/upload-artifact@v4
         with:
-          name: evento-dev-apk-rc5
+          name: evento-dev-apk-rc6
           path: |
             evento-dev.apk
             evento-dev.apk.sha256
@@ -210,7 +213,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          NOTES="EVENTO RC5 bilingual live phone update from ${GITHUB_SHA}. Adds Arabic/English server analysis, localized timeline/statuses, and safe re-analysis of older requests. Android versionCode ${EVENTO_BUILD_NUMBER}. Install as Update over the existing EVENTO app."
+          NOTES="EVENTO RC6 workflow phone update from ${GITHUB_SHA}. Adds server-controlled project workflow: analysis -> scope review -> scope approval, progress tracking, and bilingual workflow center. Android versionCode ${EVENTO_BUILD_NUMBER}. Install as Update over the existing EVENTO app."
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
             git push origin -f dev-latest
@@ -224,7 +227,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evento-rc5-diagnostics-${{ github.run_number }}
+          name: evento-rc6-diagnostics-${{ github.run_number }}
           path: ci-logs
           if-no-files-found: ignore
           retention-days: 14
