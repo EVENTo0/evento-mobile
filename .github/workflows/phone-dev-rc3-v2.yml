@@ -8,7 +8,7 @@ on:
       - '**/*.md'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: evento-phone-dev-rc6
@@ -206,22 +206,30 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Publish dev-latest release
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Publish phone install handoff
+        id: handoff
         shell: bash
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
         run: |
           set -euo pipefail
-          NOTES="EVENTO RC6 workflow phone update from ${GITHUB_SHA}. Adds server-controlled project workflow: analysis -> scope review -> scope approval, progress tracking, and bilingual workflow center. Android versionCode ${EVENTO_BUILD_NUMBER}. Install as Update over the existing EVENTO app."
-          if gh release view dev-latest >/dev/null 2>&1; then
-            git tag -f dev-latest "$GITHUB_SHA"
-            git push origin -f dev-latest
-            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber
-            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "$NOTES"
-          else
-            gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 --target "$GITHUB_SHA" --title "EVENTO Dev Latest" --prerelease --notes "$NOTES"
-          fi
+          {
+            echo "# EVENTO RC6 phone install handoff"
+            echo
+            echo "- Status: BUILD_VERIFIED"
+            echo "- Version: 0.9.0-rc.6"
+            echo "- Android versionCode: ${EVENTO_BUILD_NUMBER}"
+            echo "- Package: ${EVENTO_APPLICATION_ID}"
+            echo "- Artifact: evento-dev-apk-rc6"
+            echo "- Artifact ID: ${ARTIFACT_ID}"
+            echo "- Artifact URL: ${ARTIFACT_URL}"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo
+            echo "The GitHub Actions artifact is the authoritative phone-install handoff for development builds."
+            echo "The legacy dev-latest release/tag is not mutated by CI because the GitHub App token does not have workflow-ref update permission."
+          } | tee ci-logs/11-phone-install-handoff.md
+          cat ci-logs/11-phone-install-handoff.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload CI diagnostics
         if: always()
