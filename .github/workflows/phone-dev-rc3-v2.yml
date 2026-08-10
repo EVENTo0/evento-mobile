@@ -1,4 +1,4 @@
-name: EVENTO Phone Dev APK (RC3 v2)
+name: EVENTO Phone Dev APK (RC4)
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: evento-phone-dev-rc3-v2
+  group: evento-phone-dev-rc4
   cancel-in-progress: true
 
 env:
@@ -22,7 +22,7 @@ env:
 
 jobs:
   android-dev:
-    name: Validate full RC3 v2 and build phone update APK
+    name: Validate RC4 and build phone update APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -42,134 +42,40 @@ jobs:
         id: flutter_install
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           mkdir -p ci-logs
           git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter" 2>&1 | tee ci-logs/01-flutter.log
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics 2>&1 | tee -a ci-logs/01-flutter.log
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
           "$RUNNER_TEMP/flutter/bin/flutter" --version 2>&1 | tee -a ci-logs/01-flutter.log
 
-      - name: Generate Android platform wrapper
+      - name: Generate Android wrapper
         id: android_wrapper
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Prepare RC3 live-beta anonymous test path
-        id: source_patch
+      - name: Normalize legacy bootstrap for analysis
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/main.dart')
+          if p.exists():
+              s = p.read_text()
+              s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
+              p.write_text(s)
+          PY
+
+      - name: Resolve dependencies
+        id: pub_get
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY' 2>&1 | tee ci-logs/03-source.log
-          from pathlib import Path
+          flutter pub get 2>&1 | tee ci-logs/03-pub-get.log
 
-          # Keep the legacy bootstrap analyzable.
-          main = Path('lib/main.dart')
-          if main.exists():
-              s = main.read_text()
-              s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-              main.write_text(s)
-
-          auth = Path('lib/data/auth_service.dart')
-          s = auth.read_text()
-          if 'Future<User?> signInAnonymously()' not in s:
-              needle = '  Future<void> signOut() => client.auth.signOut();\n'
-              replacement = '''  Future<User?> signInAnonymously() async {
-            final AuthResponse response = await client.auth.signInAnonymously();
-            return response.user;
-          }
-
-          Future<void> signOut() => client.auth.signOut();
-          '''
-              if needle not in s:
-                  raise SystemExit('auth_service signOut anchor not found')
-              s = s.replace(needle, replacement, 1)
-              auth.write_text(s)
-
-          app = Path('lib/rc3_app.dart')
-          s = app.read_text()
-          s = s.replace(
-              '  bool get signedIn => email != null;\n',
-              '  bool get signedIn => auth?.currentUser != null;\n',
-              1,
-          )
-          s = s.replace(
-              "      email = client.auth.currentUser?.email;\n      if (email != null) {\n        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshLiveOrders());\n      }",
-              "      final User? currentUser = client.auth.currentUser;\n      email = currentUser?.email ?? (currentUser != null ? 'EVENTO Guest' : null);\n      if (currentUser != null) {\n        WidgetsBinding.instance.addPostFrameCallback((_) => _refreshLiveOrders());\n      }",
-              1,
-          )
-          if 'Future<bool> _signInAnonymously()' not in s:
-              anchor = '  Future<void> _signOut() async {\n'
-              method = '''  Future<bool> _signInAnonymously() async {
-            final SupabaseAuthService? service = auth;
-            if (service == null) return false;
-            setState(() {
-              busy = true;
-              backendNotice = null;
-            });
-            try {
-              final User? user = await service.signInAnonymously();
-              if (user == null) return false;
-              if (!mounted) return true;
-              setState(() {
-                email = user.email ?? (widget.arabic ? 'ضيف EVENTO التجريبي' : 'EVENTO Test Guest');
-                backendNotice = widget.arabic
-                    ? 'تم الدخول التجريبي إلى EVENTO Live.'
-                    : 'Signed in to EVENTO Live with a test guest.';
-              });
-              await _refreshLiveOrders();
-              return true;
-            } catch (error) {
-              if (mounted) setState(() => backendNotice = '$error');
-              return false;
-            } finally {
-              if (mounted) setState(() => busy = false);
-            }
-          }
-
-          '''
-              if anchor not in s:
-                  raise SystemExit('rc3 signOut anchor not found')
-              s = s.replace(anchor, method + anchor, 1)
-
-          s = s.replace(
-              '        onVerifyOtp: _verifyOtp,\n        onSignOut: _signOut,',
-              '        onVerifyOtp: _verifyOtp,\n        onAnonymousSignIn: _signInAnonymously,\n        onSignOut: _signOut,',
-              1,
-          )
-          s = s.replace(
-              '    required this.onVerifyOtp,\n    required this.onSignOut,',
-              '    required this.onVerifyOtp,\n    required this.onAnonymousSignIn,\n    required this.onSignOut,',
-              1,
-          )
-          s = s.replace(
-              '  final Future<bool> Function(String, String) onVerifyOtp;\n  final Future<void> Function() onSignOut;',
-              '  final Future<bool> Function(String, String) onVerifyOtp;\n  final Future<bool> Function() onAnonymousSignIn;\n  final Future<void> Function() onSignOut;',
-              1,
-          )
-          login_anchor = "                  Text(widget.arabic ? 'تسجيل الدخول إلى Live Beta' : 'Sign in to Live Beta', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),\n                  const SizedBox(height: 12),\n                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: widget.arabic ? 'البريد الإلكتروني' : 'Email')),"
-          login_replacement = "                  Text(widget.arabic ? 'تسجيل الدخول إلى Live Beta' : 'Sign in to Live Beta', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),\n                  const SizedBox(height: 12),\n                  SizedBox(\n                    width: double.infinity,\n                    child: FilledButton.icon(\n                      onPressed: widget.busy ? null : widget.onAnonymousSignIn,\n                      icon: const Icon(Icons.bolt_rounded),\n                      label: Text(widget.arabic ? 'دخول تجريبي سريع' : 'Quick test sign-in'),\n                    ),\n                  ),\n                  const SizedBox(height: 10),\n                  Text(\n                    widget.arabic\n                        ? 'للتجربة الحية فقط — بدون بريد أو كلمة مرور.'\n                        : 'Live testing only — no email or password required.',\n                    style: const TextStyle(color: EventoColors.muted),\n                  ),\n                  const SizedBox(height: 14),\n                  const Divider(),\n                  const SizedBox(height: 10),\n                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: widget.arabic ? 'البريد الإلكتروني' : 'Email')),"
-          if 'دخول تجريبي سريع' not in s:
-              if login_anchor not in s:
-                  raise SystemExit('account login UI anchor not found')
-              s = s.replace(login_anchor, login_replacement, 1)
-          app.write_text(s)
-
-          checks = {
-              'auth anonymous method': 'signInAnonymously' in auth.read_text(),
-              'rc3 anonymous method': 'Future<bool> _signInAnonymously()' in app.read_text(),
-              'quick login label': 'دخول تجريبي سريع' in app.read_text(),
-              'session-based signedIn': 'auth?.currentUser != null' in app.read_text(),
-          }
-          for label, ok in checks.items():
-              print(f'{label}: {"PASS" if ok else "FAIL"}')
-              if not ok:
-                  raise SystemExit(f'{label} missing')
-          print('Anonymous Live Beta path prepared for this phone build.')
-          PY
-
-      - name: Install and force persistent EVENTO dev signing identity
+      - name: Install persistent EVENTO dev signing identity
         id: signing
         shell: bash
         run: |
@@ -178,8 +84,7 @@ jobs:
           base64 --decode tool/dev_signing/evento-debug.keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>&1 | tee ci-logs/04-signing.log
-
-          python3 - <<'PY' 2>&1 | tee -a ci-logs/04-signing.log
+          python3 - <<'PY'
           from pathlib import Path
           p = Path('android/app/build.gradle.kts')
           s = p.read_text()
@@ -200,42 +105,33 @@ jobs:
               }
           '''
           if marker not in s:
-              raise SystemExit('android block not found in generated Gradle file')
+              raise SystemExit('android block not found')
           if 'create("eventoDev")' not in s:
-              s = s.replace(marker, block, 1)
-              p.write_text(s)
-          print('Pinned Android debug buildType explicitly to EVENTO eventoDev signing config.')
+              p.write_text(s.replace(marker, block, 1))
           PY
-
-      - name: Resolve dependencies
-        id: pub_get
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter pub get 2>&1 | tee ci-logs/05-pub-get.log
 
       - name: Verify Gradle signing report
         id: signing_report
         shell: bash
         run: |
           set -euo pipefail
-          (cd android && ./gradlew signingReport) 2>&1 | tee ci-logs/06-signing-report.log
-          grep -Fq "$EVENTO_DEV_CERT_SHA256_COLON" ci-logs/06-signing-report.log
-          grep -Fq 'Variant: debug' ci-logs/06-signing-report.log
+          (cd android && ./gradlew signingReport) 2>&1 | tee ci-logs/05-signing-report.log
+          grep -Fq "$EVENTO_DEV_CERT_SHA256_COLON" ci-logs/05-signing-report.log
+          grep -Fq 'Variant: debug' ci-logs/05-signing-report.log
 
       - name: Strict static analysis
         id: analyze
         shell: bash
         run: |
-          set -o pipefail
-          flutter analyze 2>&1 | tee ci-logs/07-analyze.log
+          set -euo pipefail
+          flutter analyze 2>&1 | tee ci-logs/06-analyze.log
 
       - name: Run all Flutter tests
         id: tests
         shell: bash
         run: |
-          set -o pipefail
-          flutter test --reporter expanded 2>&1 | tee ci-logs/08-tests.log
+          set -euo pipefail
+          flutter test --reporter expanded 2>&1 | tee ci-logs/07-tests.log
 
       - name: Generate monotonic Android version code
         id: version_code
@@ -243,155 +139,74 @@ jobs:
         run: |
           set -euo pipefail
           EVENTO_BUILD_NUMBER=$(( $(date -u +%s) / 10 ))
-          if [ "$EVENTO_BUILD_NUMBER" -le 7 ]; then
-            echo "Generated versionCode must be greater than the already-installed baseline (7)." >&2
-            exit 1
-          fi
+          test "$EVENTO_BUILD_NUMBER" -gt 178625293
           echo "EVENTO_BUILD_NUMBER=$EVENTO_BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/09-version-code.log
+          echo "Android versionCode: $EVENTO_BUILD_NUMBER" | tee ci-logs/08-version-code.log
 
-      - name: Build RC3 v2 update APK
+      - name: Build RC4 update APK
         id: build
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           flutter build apk --debug \
-            -t lib/main_rc3_v2.dart \
-            --build-name "0.9.0-rc.3" \
+            -t lib/main_rc4.dart \
+            --build-name "0.9.0-rc.4" \
             --build-number "$EVENTO_BUILD_NUMBER" \
             --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
             --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt \
-            2>&1 | tee ci-logs/10-build.log
+            2>&1 | tee ci-logs/09-build.log
           cp build/app/outputs/flutter-apk/app-debug.apk evento-dev.apk
           sha256sum evento-dev.apk | tee evento-dev.apk.sha256
 
-      - name: Verify APK package, version and signing certificate
+      - name: Verify APK identity
         id: apk_verify
         shell: bash
         run: |
           set -euo pipefail
           AAPT="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$AAPT"
-          test -x "$APKSIGNER"
-
           BADGING="$($AAPT dump badging evento-dev.apk | head -n 1)"
-          echo "$BADGING" | tee ci-logs/11-apk-identity.log
+          echo "$BADGING" | tee ci-logs/10-apk-identity.log
           echo "$BADGING" | grep -q "package: name='$EVENTO_APPLICATION_ID'"
-
           APK_VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
           test "$APK_VERSION_CODE" = "$EVENTO_BUILD_NUMBER"
-          test "$APK_VERSION_CODE" -gt 7
-
-          "$APKSIGNER" verify --print-certs evento-dev.apk 2>&1 | tee -a ci-logs/11-apk-identity.log
+          "$APKSIGNER" verify --print-certs evento-dev.apk 2>&1 | tee -a ci-logs/10-apk-identity.log
           CERT_DIGEST="$($APKSIGNER verify --print-certs evento-dev.apk 2>/dev/null | sed -n 's/^V2 Signer: certificate SHA-256 digest: //p; s/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           test "$CERT_DIGEST" = "$EVENTO_DEV_CERT_SHA256"
-
-          echo "Verified applicationId=$EVENTO_APPLICATION_ID versionCode=$APK_VERSION_CODE cert=$CERT_DIGEST" | tee -a ci-logs/11-apk-identity.log
 
       - name: Upload APK artifact
         id: artifact
         uses: actions/upload-artifact@v4
         with:
-          name: evento-dev-apk-rc3-v2
+          name: evento-dev-apk-rc4
           path: |
             evento-dev.apk
             evento-dev.apk.sha256
           retention-days: 30
           if-no-files-found: error
 
-      - name: Publish permanent dev-latest release
+      - name: Publish dev-latest release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          set -o pipefail
-          RELEASE_NOTES="RC3 v2 Live Beta test update from ${GITHUB_SHA}. Includes temporary Anonymous Auth quick sign-in. Android versionCode ${EVENTO_BUILD_NUMBER}. Package ${EVENTO_APPLICATION_ID}. Certificate ${EVENTO_DEV_CERT_SHA256}. Install over the existing EVENTO app; do not uninstall it."
+          set -euo pipefail
+          NOTES="EVENTO RC4 pre-production phone update from ${GITHUB_SHA}. Adds live server-analysis and timeline details. Android versionCode ${EVENTO_BUILD_NUMBER}. Install as Update over the existing EVENTO app."
           if gh release view dev-latest >/dev/null 2>&1; then
             git tag -f dev-latest "$GITHUB_SHA"
-            git push origin -f dev-latest 2>&1 | tee ci-logs/12-release.log
-            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber 2>&1 | tee -a ci-logs/12-release.log
-            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "$RELEASE_NOTES" 2>&1 | tee -a ci-logs/12-release.log
+            git push origin -f dev-latest
+            gh release upload dev-latest evento-dev.apk evento-dev.apk.sha256 --clobber
+            gh release edit dev-latest --title "EVENTO Dev Latest" --notes "$NOTES"
           else
-            gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 \
-              --target "$GITHUB_SHA" \
-              --title "EVENTO Dev Latest" \
-              --prerelease \
-              --notes "$RELEASE_NOTES" \
-              2>&1 | tee ci-logs/12-release.log
+            gh release create dev-latest evento-dev.apk evento-dev.apk.sha256 --target "$GITHUB_SHA" --title "EVENTO Dev Latest" --prerelease --notes "$NOTES"
           fi
 
       - name: Upload CI diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evento-rc3-v2-diagnostics-${{ github.run_number }}
+          name: evento-rc4-diagnostics-${{ github.run_number }}
           path: ci-logs
           if-no-files-found: ignore
           retention-days: 14
-
-      - name: Record phone build status
-        if: always()
-        shell: bash
-        run: |
-          FAILED_STAGE="none"
-          if [ "${{ steps.flutter_install.outcome }}" = "failure" ]; then FAILED_STAGE="flutter_install";
-          elif [ "${{ steps.android_wrapper.outcome }}" = "failure" ]; then FAILED_STAGE="android_wrapper";
-          elif [ "${{ steps.source_patch.outcome }}" = "failure" ]; then FAILED_STAGE="source_patch";
-          elif [ "${{ steps.signing.outcome }}" = "failure" ]; then FAILED_STAGE="signing";
-          elif [ "${{ steps.pub_get.outcome }}" = "failure" ]; then FAILED_STAGE="pub_get";
-          elif [ "${{ steps.signing_report.outcome }}" = "failure" ]; then FAILED_STAGE="signing_report";
-          elif [ "${{ steps.analyze.outcome }}" = "failure" ]; then FAILED_STAGE="analyze";
-          elif [ "${{ steps.tests.outcome }}" = "failure" ]; then FAILED_STAGE="tests";
-          elif [ "${{ steps.version_code.outcome }}" = "failure" ]; then FAILED_STAGE="version_code";
-          elif [ "${{ steps.build.outcome }}" = "failure" ]; then FAILED_STAGE="build";
-          elif [ "${{ steps.apk_verify.outcome }}" = "failure" ]; then FAILED_STAGE="apk_verify";
-          elif [ "${{ steps.artifact.outcome }}" = "failure" ]; then FAILED_STAGE="artifact";
-          elif [ "${{ steps.release.outcome }}" = "failure" ]; then FAILED_STAGE="release";
-          fi
-
-          {
-            echo "# EVENTO Phone Build Status"
-            echo
-            echo "Commit: $GITHUB_SHA"
-            echo "Run number: $GITHUB_RUN_NUMBER"
-            echo "Android versionCode: ${EVENTO_BUILD_NUMBER:-not-generated}"
-            echo "Application ID: $EVENTO_APPLICATION_ID"
-            echo "Expected dev cert: $EVENTO_DEV_CERT_SHA256"
-            echo "Job status: ${{ job.status }}"
-            echo "Failed stage: $FAILED_STAGE"
-            echo "Target: lib/main_rc3_v2.dart"
-            echo "Channel: RC3 v2 + temporary Anonymous Live Beta auth"
-            echo "Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo
-            echo "## Step outcomes"
-            echo "- Flutter install: ${{ steps.flutter_install.outcome }}"
-            echo "- Android wrapper: ${{ steps.android_wrapper.outcome }}"
-            echo "- Anonymous auth source path: ${{ steps.source_patch.outcome }}"
-            echo "- Signing key install: ${{ steps.signing.outcome }}"
-            echo "- Pub get: ${{ steps.pub_get.outcome }}"
-            echo "- Gradle signing report: ${{ steps.signing_report.outcome }}"
-            echo "- Analyze: ${{ steps.analyze.outcome }}"
-            echo "- Tests: ${{ steps.tests.outcome }}"
-            echo "- Version code: ${{ steps.version_code.outcome }}"
-            echo "- Build: ${{ steps.build.outcome }}"
-            echo "- APK identity verification: ${{ steps.apk_verify.outcome }}"
-            echo "- Artifact: ${{ steps.artifact.outcome }}"
-            echo "- Release: ${{ steps.release.outcome }}"
-            echo
-            echo "## Diagnostic tail"
-            echo '```text'
-            for f in ci-logs/*.log; do
-              [ -f "$f" ] || continue
-              echo "===== $f ====="
-              tail -n 40 "$f"
-            done
-            echo '```'
-          } > PHONE_BUILD_STATUS.md
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add PHONE_BUILD_STATUS.md
-          git commit -m "ci: record RC3 v2 phone build diagnostics [skip ci]" || exit 0
-          git push || true
