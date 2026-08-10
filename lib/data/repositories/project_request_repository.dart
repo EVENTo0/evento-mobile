@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/project_request.dart';
+import '../../domain/project_workflow.dart';
 import '../../domain/request_live_detail.dart';
 
 abstract interface class ProjectRequestRepository {
@@ -15,7 +16,10 @@ abstract interface class ProjectRequestRepository {
   Future<ProjectRequestRecord?> getById(String id);
   Future<RequestAnalysisRecord?> getAnalysis(String requestId);
   Future<List<RequestEventRecord>> getEvents(String requestId);
+  Future<ProjectWorkflowRecord?> getWorkflow(String requestId);
   Future<void> requestAnalysis(String requestId);
+  Future<void> startWorkflow(String requestId);
+  Future<void> approveScope(String requestId);
 }
 
 class BackendNotConfiguredException implements Exception {
@@ -121,11 +125,40 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
   }
 
   @override
+  Future<ProjectWorkflowRecord?> getWorkflow(String requestId) async {
+    _user;
+    final Map<String, dynamic>? row = await client
+        .from('project_workflows')
+        .select(
+          'request_id,current_stage,progress_percent,estimated_price_aed,scope_approved_at,updated_at',
+        )
+        .eq('request_id', requestId)
+        .maybeSingle();
+    return row == null ? null : ProjectWorkflowRecord.fromJson(row);
+  }
+
+  @override
   Future<void> requestAnalysis(String requestId) async {
     _user;
     await client.functions.invoke(
       'analyze-request',
       body: <String, dynamic>{'request_id': requestId},
     );
+  }
+
+  @override
+  Future<void> startWorkflow(String requestId) async {
+    _user;
+    await client.rpc('start_project_workflow', params: <String, dynamic>{
+      'p_request_id': requestId,
+    });
+  }
+
+  @override
+  Future<void> approveScope(String requestId) async {
+    _user;
+    await client.rpc('approve_project_scope', params: <String, dynamic>{
+      'p_request_id': requestId,
+    });
   }
 }
