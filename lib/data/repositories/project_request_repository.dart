@@ -98,7 +98,9 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
     _user;
     final Map<String, dynamic>? row = await client
         .from('request_analyses')
-        .select('complexity,summary,proposed_scope,risks,engine_version,updated_at')
+        .select(
+          'complexity,summary,summary_ar,proposed_scope,proposed_scope_ar,risks,risks_ar,engine_version,updated_at',
+        )
         .eq('request_id', requestId)
         .maybeSingle();
     return row == null ? null : RequestAnalysisRecord.fromJson(row);
@@ -109,7 +111,7 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
     _user;
     final List<dynamic> rows = await client
         .from('project_request_events')
-        .select('status,note,created_at')
+        .select('status,note,note_ar,created_at')
         .eq('request_id', requestId)
         .order('created_at');
     return rows
