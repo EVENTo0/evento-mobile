@@ -1,6 +1,7 @@
 EVENTO phone build trigger
-reason=rc4-preproduction-live-details
+reason=rc4-final-clean-run
 baseline_installed_version_code=178625293
 expected_application_id=ae.evento.evento_mobile
 expected_dev_cert_sha256=bac5a317acd9286aa346268daff0463dae653932f483845e129955de4d069a36
 target=lib/main_rc4.dart
+requested_at=2026-08-10T10:58:00Z
