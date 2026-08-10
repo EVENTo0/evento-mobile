@@ -1,7 +1,7 @@
 # EVENTO RC5 Build Status
 
-Run ID: 31382992589
-Commit: 8d6dbfeb3a0e94f59302887c7ef812e81117d9ca
-Conclusion: cancelled
-Run: https://github.com/EVENTo0/evento-mobile/actions/runs/31382992589
-Updated: 2026-08-10T11:23:43Z
+Run ID: 31382808863
+Commit: f1c6f78cf90c49846f8c443c3098ceb574a52985
+Conclusion: success
+Run: https://github.com/EVENTo0/evento-mobile/actions/runs/31382808863
+Updated: 2026-08-10T11:26:27Z
