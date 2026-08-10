@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/project_request.dart';
+import '../../domain/request_live_detail.dart';
 
 abstract interface class ProjectRequestRepository {
   Future<ProjectRequestRecord> create({
@@ -12,6 +13,8 @@ abstract interface class ProjectRequestRepository {
 
   Future<List<ProjectRequestRecord>> listMine();
   Future<ProjectRequestRecord?> getById(String id);
+  Future<RequestAnalysisRecord?> getAnalysis(String requestId);
+  Future<List<RequestEventRecord>> getEvents(String requestId);
   Future<void> requestAnalysis(String requestId);
 }
 
@@ -88,6 +91,31 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
         .eq('id', id)
         .maybeSingle();
     return row == null ? null : ProjectRequestRecord.fromJson(row);
+  }
+
+  @override
+  Future<RequestAnalysisRecord?> getAnalysis(String requestId) async {
+    _user;
+    final Map<String, dynamic>? row = await client
+        .from('request_analyses')
+        .select('complexity,summary,proposed_scope,risks,engine_version,updated_at')
+        .eq('request_id', requestId)
+        .maybeSingle();
+    return row == null ? null : RequestAnalysisRecord.fromJson(row);
+  }
+
+  @override
+  Future<List<RequestEventRecord>> getEvents(String requestId) async {
+    _user;
+    final List<dynamic> rows = await client
+        .from('project_request_events')
+        .select('status,note,created_at')
+        .eq('request_id', requestId)
+        .order('created_at');
+    return rows
+        .cast<Map<String, dynamic>>()
+        .map(RequestEventRecord.fromJson)
+        .toList(growable: false);
   }
 
   @override
