@@ -56,16 +56,26 @@ jobs:
           set -euo pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize legacy bootstrap for analysis
+      - name: Normalize source for strict analysis
+        id: source_normalize
         shell: bash
         run: |
-          python3 - <<'PY'
+          set -euo pipefail
+          python3 - <<'PY' 2>&1 | tee ci-logs/02b-source-normalize.log
           from pathlib import Path
-          p = Path('lib/main.dart')
-          if p.exists():
-              s = p.read_text()
+          legacy = Path('lib/main.dart')
+          if legacy.exists():
+              s = legacy.read_text()
               s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-              p.write_text(s)
+              legacy.write_text(s)
+
+          rc4 = Path('lib/rc4_app.dart')
+          if rc4.exists():
+              s = rc4.read_text()
+              s = s.replace("import 'data/demo_analysis.dart';\n", '')
+              rc4.write_text(s)
+
+          print('Source normalization complete.')
           PY
 
       - name: Resolve dependencies
