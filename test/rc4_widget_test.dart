@@ -37,6 +37,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
+    await tester.tap(find.text('Account'));
+    await tester.pumpAndSettle();
     expect(find.text('My live requests'), findsOneWidget);
   });
 
