@@ -1,7 +1,7 @@
 # EVENTO RC6 Build Status
 
-Run ID: 31387027652
-Commit: 9a1d752ee95544106bb2c0451dfebd700264180f
+Run ID: 31387251144
+Commit: 4979d9d4302d64f40c5f04bcf297635a59004cad
 Conclusion: failure
-Run: https://github.com/EVENTo0/evento-mobile/actions/runs/31387027652
-Updated: 2026-08-10T12:23:07Z
+Run: https://github.com/EVENTo0/evento-mobile/actions/runs/31387251144
+Updated: 2026-08-10T12:27:08Z
