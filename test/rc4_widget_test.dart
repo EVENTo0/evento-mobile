@@ -1,10 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:evento_mobile/domain/request_live_detail.dart';
 import 'package:evento_mobile/rc4_app.dart';
 
 void main() {
-  testWidgets('RC4 exposes the 50-project catalog', (WidgetTester tester) async {
+  testWidgets('RC4 exposes the 50-project customer catalog', (WidgetTester tester) async {
     await tester.pumpWidget(const EventoRc4App());
 
     expect(find.text('EVENTO'), findsOneWidget);
