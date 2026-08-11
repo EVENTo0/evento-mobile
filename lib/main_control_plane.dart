@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'control_plane/control_plane_page.dart';
+import 'control_plane/quote_center_page.dart';
 import 'core/backend_config.dart';
 import 'core/evento_theme.dart';
 
@@ -28,8 +29,48 @@ class EventoControlPlanePreviewApp extends StatelessWidget {
       title: 'EVENTO Control Plane V1',
       theme: buildEventoTheme(),
       home: BackendConfig.isConfigured
-          ? const EventoControlPlanePage()
+          ? const _ControlPlaneShell()
           : const _BackendMissingPage(),
+    );
+  }
+}
+
+class _ControlPlaneShell extends StatefulWidget {
+  const _ControlPlaneShell();
+
+  @override
+  State<_ControlPlaneShell> createState() => _ControlPlaneShellState();
+}
+
+class _ControlPlaneShellState extends State<_ControlPlaneShell> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: const [
+          EventoControlPlanePage(),
+          EventoQuoteCenterPage(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) => setState(() => _index = value),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Control',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.request_quote_outlined),
+            selectedIcon: Icon(Icons.request_quote),
+            label: 'Quotes',
+          ),
+        ],
+      ),
     );
   }
 }
