@@ -146,19 +146,22 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
     );
   }
 
-  @override
-  Future<void> startWorkflow(String requestId) async {
+  Future<void> _transitionWorkflow(String requestId, String action) async {
     _user;
-    await client.rpc('start_project_workflow', params: <String, dynamic>{
-      'p_request_id': requestId,
-    });
+    await client.functions.invoke(
+      'workflow-transition',
+      body: <String, dynamic>{
+        'request_id': requestId,
+        'action': action,
+      },
+    );
   }
 
   @override
-  Future<void> approveScope(String requestId) async {
-    _user;
-    await client.rpc('approve_project_scope', params: <String, dynamic>{
-      'p_request_id': requestId,
-    });
-  }
+  Future<void> startWorkflow(String requestId) =>
+      _transitionWorkflow(requestId, 'start');
+
+  @override
+  Future<void> approveScope(String requestId) =>
+      _transitionWorkflow(requestId, 'approve');
 }
