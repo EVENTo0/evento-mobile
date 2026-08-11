@@ -10,14 +10,20 @@ Turn EVENTO into a phone-first operating system for Evento Project Development: 
 
 - Supabase project: `Evento project 1` — active/healthy.
 - Live tables: `project_requests`, `request_analyses`, `project_workflows`, `project_request_events`.
-- Live Edge Function: `analyze-request`.
-- Existing request flow reaches analysis; workflow activation exists server-side.
-- Flutter mobile app uses Supabase and already includes RC6 workflow controls.
-- V1 control-plane screen reads live metrics allowed by current RLS policies.
+- Live Edge Functions: `analyze-request` and authenticated `workflow-transition`.
+- Flutter mobile app uses Supabase and the implementation branch routes workflow transitions through the Edge Function instead of direct client RPC calls.
+- Owner/admin authorization is backed by a private company-membership table and role-aware RLS.
+- Anonymous users can use the demo/analysis path but are blocked from commercial workflow transitions.
 
-## V1 dashboard
+## V1 dashboard access model
 
-The first dashboard slice intentionally contains no privileged company-wide bypass. It reports only rows visible to the signed-in user:
+The control plane reads live Supabase data. RLS now applies a role-aware rule:
+
+- EVENTO owner/admin/ops can read company-wide operational rows.
+- Customers can read only their own rows.
+- Infrastructure credentials never enter Flutter or browser clients.
+
+Current live indicators include:
 
 - project request count
 - completed analysis count
@@ -27,37 +33,53 @@ The first dashboard slice intentionally contains no privileged company-wide bypa
 - project event count
 - Supabase live/auth status
 
-## Next secure slices
+## Security work completed
 
-1. Owner/Admin authorization model using `app_metadata` or a dedicated membership/role table; never `user_metadata`.
-2. Admin KPI RPC/view layer with explicit authorization and audit logging.
-3. Quotes, approvals and Build Queue after `scope_approved`.
-4. Customer records, support/refund cases and SLA tracking.
-5. Payments and revenue ledger (Stripe/Tap/Apple Pay integrations server-side only).
-6. GitHub project/build/PR status and deployment previews.
-7. Vercel/Hostinger/WordPress operational status connectors.
-8. AI/agent run registry, cost, success rate and human approval gates.
-9. Marketing campaigns, leads, conversion funnel and attribution.
-10. Risk register, incidents, backups, security advisories and operational score.
+1. Added `private.evento_company_memberships`.
+2. Registered the current permanent company account as `owner` without hard-coding a generated Auth user ID in migration source.
+3. Added private staff-role helpers for RLS.
+4. Consolidated duplicate SELECT policies into one role-aware policy per table.
+5. Added missing workflow foreign-key indexes.
+6. Added a verified-account gate to commercial workflow transitions.
+7. Restricted analysis finalization RPC execution to `service_role`.
+8. Added the authenticated `workflow-transition` Edge Function.
+9. Added atomic server-only `evento_transition_project_workflow_v1`, executable by `service_role` only.
+
+## Verification completed
+
+- Transactional smoke test verified `analyzed -> scope_review -> scope_approved` and rolled back the temporary test data.
+- Anonymous transition smoke test verified `verified_account_required` before any commercial workflow write.
+- Server-only atomic transition smoke test passed and rolled back the temporary data.
+- Supabase performance advisors no longer report the previous duplicate-policy, Auth init-plan, or missing workflow foreign-key index warnings.
+
+## Temporary compatibility boundary
+
+The legacy public `start_project_workflow` and `approve_project_scope` RPC functions remain callable by verified authenticated users until this branch is promoted into the release path. They enforce ownership, state checks and the verified-account gate.
+
+After the new mobile client path is accepted, revoke their `authenticated` EXECUTE grants. That will remove the remaining public SECURITY DEFINER compatibility warnings.
+
+## Remaining production gates
+
+1. Enable Supabase leaked-password protection in Auth settings.
+2. Decide whether anonymous demo sign-ins remain in the production acquisition funnel. If retained, add CAPTCHA/Turnstile and rate-limit controls.
+3. Promote the Edge Function client path, then revoke legacy workflow RPC client access.
+4. Add quotes/pricing, approval and Build Queue after `scope_approved`.
+5. Add customer support/refund cases and audit history.
+6. Add payment and revenue ledger; payment secrets and webhooks stay server-side.
+7. Add GitHub/Vercel/Hostinger operational connectors to the normalized Control Plane read model.
+8. Add agent-run registry, cost, success rate and approval gates.
+9. Add marketing attribution, conversion funnel and risk/incident views.
+
+## Revenue-engine sequence
+
+`Lead -> Request -> AI Analysis -> Scope -> Quote -> Approval -> Payment -> Build Queue -> Build -> QA -> Preview -> Revision -> Delivery -> Rating -> Support`
 
 ## Platform recommendation
 
-- `evento.ae` or the company's owned primary domain: customer-facing EVENTO website.
+- Company's owned primary EVENTO domain: customer-facing website.
 - `app.<primary-domain>`: customer portal and project tracking.
 - `ops.<primary-domain>`: private owner/team Control Plane.
-- Supabase: primary operational database, Auth, storage and server functions.
-- Vercel: preferred deployment/preview plane for modern Next.js control surfaces.
-- Hostinger: keep domains, email and existing WordPress assets where useful; do not make WordPress the source of truth for operational data.
-- Flutter app: phone-first EVENTO customer + owner companion; production admin actions require stronger authorization than ordinary customer RLS.
-
-## Release gates
-
-V1 is not considered production-owner-ready until:
-
-- Supabase security advisors are reviewed and high-risk findings resolved or explicitly justified.
-- Administrative access cannot be obtained through editable user metadata.
-- Payment secrets and webhook verification remain server-side.
-- Customer refund/support actions are audited.
-- CI produces a reproducible phone artifact.
-- A live preview demonstrates requests -> analysis -> scope -> quote -> approval -> build queue.
-- Backup/recovery and incident runbooks exist.
+- Supabase: operational database, Auth, storage and server functions.
+- Vercel: modern web/admin/customer portal deployments and previews where appropriate.
+- Hostinger: domains, DNS, existing hosting/WordPress, mail and owned infrastructure after inventory reconciliation.
+- Flutter: phone-first EVENTO customer + owner companion.
