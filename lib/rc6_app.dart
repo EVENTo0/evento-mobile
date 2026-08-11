@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/evento_theme.dart';
 import 'data/repositories/project_request_repository.dart';
+import 'domain/project_contract.dart';
 import 'domain/project_quote.dart';
 import 'domain/project_request.dart';
 import 'domain/project_workflow.dart';
@@ -66,6 +67,8 @@ class _WorkflowCenterPageState extends State<_WorkflowCenterPage> {
   final Map<String, ProjectWorkflowRecord?> workflows =
       <String, ProjectWorkflowRecord?>{};
   final Map<String, ProjectQuoteRecord?> quotes = <String, ProjectQuoteRecord?>{};
+  final Map<String, ProjectContractVersionRecord?> contracts =
+      <String, ProjectContractVersionRecord?>{};
 
   SupabaseProjectRequestRepository get repository =>
       SupabaseProjectRequestRepository(Supabase.instance.client);
@@ -98,10 +101,12 @@ class _WorkflowCenterPageState extends State<_WorkflowCenterPage> {
       final rows = await repository.listMine();
       final nextWorkflows = <String, ProjectWorkflowRecord?>{};
       final nextQuotes = <String, ProjectQuoteRecord?>{};
+      final nextContracts = <String, ProjectContractVersionRecord?>{};
       for (final row in rows) {
         nextWorkflows[row.id] = await repository.getWorkflow(row.id);
         if (!anonymous) {
           nextQuotes[row.id] = await repository.getQuote(row.id);
+          nextContracts[row.id] = await repository.getContract(row.id);
         }
       }
       if (!mounted) return;
@@ -113,6 +118,9 @@ class _WorkflowCenterPageState extends State<_WorkflowCenterPage> {
         quotes
           ..clear()
           ..addAll(nextQuotes);
+        contracts
+          ..clear()
+          ..addAll(nextContracts);
       });
     } catch (error) {
       if (mounted) setState(() => message = '$error');
@@ -139,8 +147,17 @@ class _WorkflowCenterPageState extends State<_WorkflowCenterPage> {
     await _runTransition(
       () => repository.acceptQuote(quote.id),
       arabic
-          ? 'تم قبول عرض السعر. بوابة الدفع هي الخطوة التالية.'
-          : 'Quote accepted. Payment is the next gate.',
+          ? 'تم قبول عرض السعر. العقد المراجع هو البوابة التالية.'
+          : 'Quote accepted. The reviewed contract is the next gate.',
+    );
+  }
+
+  Future<void> _acceptContract(ProjectContractVersionRecord contract) async {
+    await _runTransition(
+      () => repository.acceptContract(contract.id),
+      arabic
+          ? 'تم قبول نسخة العقد المراجعة. الدفع هو البوابة التالية.'
+          : 'Reviewed contract accepted. Payment is the next gate.',
     );
   }
 
@@ -216,12 +233,16 @@ class _WorkflowCenterPageState extends State<_WorkflowCenterPage> {
                     request: request,
                     workflow: workflows[request.id],
                     quote: quotes[request.id],
+                    contract: contracts[request.id],
                     busy: busy,
                     onStart: () => _start(request),
                     onApprove: () => _approve(request),
                     onAcceptQuote: quotes[request.id] == null
                         ? null
                         : () => _acceptQuote(quotes[request.id]!),
+                    onAcceptContract: contracts[request.id] == null
+                        ? null
+                        : () => _acceptContract(contracts[request.id]!),
                   ),
             ],
           ),
@@ -264,8 +285,8 @@ class _WorkflowIntro extends StatelessWidget {
                         ? 'وضع التجربة يسمح بالفكرة والتحليل فقط. يلزم حساب موثّق قبل Workflow التجاري وعروض الأسعار.'
                         : 'Demo mode supports idea analysis only. A verified account is required before commercial workflow and quotations.')
                     : (arabic
-                        ? 'المشروع ينتقل من التحليل إلى اعتماد النطاق ثم عرض السعر. بعد قبول السعر تصبح بوابة الدفع هي المرحلة التالية قبل البناء.'
-                        : 'The project moves from analysis to scope approval and quotation. After quote acceptance, payment is the next gate before build.'),
+                        ? 'المسار التجاري مضبوط خادميًا: نطاق → عرض سعر → عقد مراجع → دفع موثّق → إذن بشري بالتنفيذ → بناء.'
+                        : 'The commercial path is server-controlled: scope → quote → reviewed contract → verified payment → human fulfillment authorization → build.'),
               ),
             ],
           ),
@@ -280,10 +301,12 @@ class _WorkflowRequestCard extends StatelessWidget {
     required this.request,
     required this.workflow,
     required this.quote,
+    required this.contract,
     required this.busy,
     required this.onStart,
     required this.onApprove,
     required this.onAcceptQuote,
+    required this.onAcceptContract,
   });
 
   final bool arabic;
@@ -291,10 +314,12 @@ class _WorkflowRequestCard extends StatelessWidget {
   final ProjectRequestRecord request;
   final ProjectWorkflowRecord? workflow;
   final ProjectQuoteRecord? quote;
+  final ProjectContractVersionRecord? contract;
   final bool busy;
   final VoidCallback onStart;
   final VoidCallback onApprove;
   final VoidCallback? onAcceptQuote;
+  final VoidCallback? onAcceptContract;
 
   @override
   Widget build(BuildContext context) {
@@ -375,22 +400,52 @@ class _WorkflowRequestCard extends StatelessWidget {
                     ? 'المسودة داخل EVENTO ولم تُرسل للعميل بعد.'
                     : 'The quotation is still an EVENTO internal draft.',
               )
-            else if (stage == 'quote_sent' ||
-                request.status == ProjectRequestStatus.quoted)
+            else if (stage == 'quote_sent')
               _QuoteApprovalCard(
                 arabic: arabic,
                 quote: quote,
                 busy: busy,
                 onAccept: onAcceptQuote,
               )
-            else if (stage == 'quote_approved' ||
-                request.status == ProjectRequestStatus.approved)
+            else if (stage == 'quote_approved')
+              _ContractWaitingCard(arabic: arabic, contract: contract)
+            else if (stage == 'contract_sent')
+              _ContractApprovalCard(
+                arabic: arabic,
+                contract: contract,
+                busy: busy,
+                onAccept: onAcceptContract,
+              )
+            else if (stage == 'contract_approved')
               _WorkflowInfo(
-                title: arabic ? 'تم قبول عرض السعر' : 'Quotation accepted',
+                title: arabic ? 'العقد مقبول' : 'Contract accepted',
                 text: arabic
-                    ? 'تم تثبيت المشروع في Build Queue بحالة pending_payment. لن يبدأ البناء قبل تأكيد الدفع.'
-                    : 'The project is registered in Build Queue as pending_payment. Build will not start before payment confirmation.',
-              ),
+                    ? 'تم تثبيت العقد المراجع. الدفع هو البوابة التالية، ولا يبدأ البناء بمجرد العودة من صفحة Checkout.'
+                    : 'The reviewed contract is fixed. Payment is next; returning from Checkout never starts the build by itself.',
+              )
+            else if (stage == 'payment_verified')
+              _WorkflowInfo(
+                title: arabic ? 'تم توثيق الدفع' : 'Payment verified',
+                text: arabic
+                    ? 'تحقق الخادم من الدفع. المشروع ما زال pending_payment حتى يعتمد مالك/مشغّل EVENTO بدء التنفيذ.'
+                    : 'The server verified payment. The project remains pending_payment until an EVENTO owner/operator authorizes fulfillment.',
+              )
+            else if (stage == 'build_queue')
+              _WorkflowInfo(
+                title: arabic ? 'تم اعتماد بدء التنفيذ' : 'Fulfillment authorized',
+                text: arabic
+                    ? 'صدر إذن بشري بالتنفيذ وأصبح المشروع في قائمة البناء المصرّح بها.'
+                    : 'Human fulfillment authorization was recorded and the project is now in the authorized build queue.',
+              )
+            else if (stage == null && request.status == ProjectRequestStatus.quoted)
+              _QuoteApprovalCard(
+                arabic: arabic,
+                quote: quote,
+                busy: busy,
+                onAccept: onAcceptQuote,
+              )
+            else if (stage == null && request.status == ProjectRequestStatus.approved)
+              _ContractWaitingCard(arabic: arabic, contract: contract),
           ],
         ),
       ),
@@ -467,8 +522,137 @@ class _QuoteApprovalCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             arabic
-                ? 'قبول العرض لا يعني بدء البناء؛ الدفع هو البوابة التالية.'
-                : 'Accepting the quote does not start the build; payment is the next gate.',
+                ? 'قبول العرض يثبت النسخة الحالية فقط؛ العقد المراجع هو البوابة التالية قبل الدفع.'
+                : 'Accepting the quote fixes this version only; the reviewed contract is the next gate before payment.',
+            style: const TextStyle(color: EventoColors.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContractWaitingCard extends StatelessWidget {
+  const _ContractWaitingCard({required this.arabic, required this.contract});
+
+  final bool arabic;
+  final ProjectContractVersionRecord? contract;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = contract;
+    if (value == null) {
+      return _WorkflowInfo(
+        title: arabic ? 'العقد هو البوابة التالية' : 'Contract is the next gate',
+        text: arabic
+            ? 'قبل الدفع، تُعد EVENTO نسخة عقد مرتبطة بعرض السعر المقبول وتخضع للمراجعة ثم تُرسل إليك.'
+            : 'Before payment, EVENTO prepares a contract version bound to the accepted quote, reviews it, then sends it to you.',
+      );
+    }
+    if (value.status == 'draft') {
+      return _WorkflowInfo(
+        title: arabic ? 'العقد قيد المراجعة' : 'Contract under review',
+        text: arabic
+            ? 'نسخة العقد داخل EVENTO ولم تصبح قابلة لقبول العميل بعد.'
+            : 'The contract version remains internal to EVENTO and is not yet customer-acceptable.',
+      );
+    }
+    return _WorkflowInfo(
+      title: arabic ? 'العقد جاهز للمراجعة' : 'Contract ready for review',
+      text: arabic
+          ? 'حدّث Workflow لعرض نسخة العقد المرسلة واعتمادها.'
+          : 'Refresh Workflow to review and accept the sent contract version.',
+    );
+  }
+}
+
+class _ContractApprovalCard extends StatelessWidget {
+  const _ContractApprovalCard({
+    required this.arabic,
+    required this.contract,
+    required this.busy,
+    required this.onAccept,
+  });
+
+  final bool arabic;
+  final ProjectContractVersionRecord? contract;
+  final bool busy;
+  final VoidCallback? onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = contract;
+    if (value == null) {
+      return _WorkflowInfo(
+        title: arabic ? 'جاري تحميل العقد' : 'Loading contract',
+        text: arabic
+            ? 'حدّث الصفحة إذا استمرت هذه الحالة.'
+            : 'Refresh if this state persists.',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: EventoColors.cyan.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: EventoColors.cyan.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            arabic ? 'عقد EVENTO المراجع' : 'Reviewed EVENTO contract',
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${value.contractCode} • v${value.versionNumber} • ${value.termsVersion}',
+            style: const TextStyle(color: EventoColors.muted),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            arabic ? value.renderedTermsAr : (value.renderedTermsEn ?? value.renderedTermsAr),
+            maxLines: 8,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (value.deliverables.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              arabic ? 'التسليمات' : 'Deliverables',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            for (final item in value.deliverables)
+              Text('• $item'),
+          ],
+          if (value.acceptanceCriteria.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              arabic ? 'معايير القبول' : 'Acceptance criteria',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            for (final item in value.acceptanceCriteria)
+              Text('• $item'),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            '${arabic ? 'المراجعة' : 'Review'}: ${value.legalReviewStatus}',
+            style: const TextStyle(color: EventoColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy || !value.isAcceptable ? null : onAccept,
+              icon: const Icon(Icons.gavel_outlined),
+              label: Text(arabic ? 'أوافق على نسخة العقد' : 'Accept contract version'),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            arabic
+                ? 'قبول العقد لا يثبت الدفع ولا يبدأ التنفيذ. الدفع الموثّق ثم إذن EVENTO البشري بوابتان مستقلتان.'
+                : 'Contract acceptance does not prove payment or start fulfillment. Verified payment and human EVENTO authorization remain separate gates.',
             style: const TextStyle(color: EventoColors.muted, fontSize: 12),
           ),
         ],
