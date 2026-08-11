@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/project_quote.dart';
 import '../../domain/project_request.dart';
 import '../../domain/project_workflow.dart';
 import '../../domain/request_live_detail.dart';
@@ -17,9 +18,11 @@ abstract interface class ProjectRequestRepository {
   Future<RequestAnalysisRecord?> getAnalysis(String requestId);
   Future<List<RequestEventRecord>> getEvents(String requestId);
   Future<ProjectWorkflowRecord?> getWorkflow(String requestId);
+  Future<ProjectQuoteRecord?> getQuote(String requestId);
   Future<void> requestAnalysis(String requestId);
   Future<void> startWorkflow(String requestId);
   Future<void> approveScope(String requestId);
+  Future<void> acceptQuote(String quoteId);
 }
 
 class BackendNotConfiguredException implements Exception {
@@ -138,6 +141,17 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
   }
 
   @override
+  Future<ProjectQuoteRecord?> getQuote(String requestId) async {
+    _user;
+    final Map<String, dynamic>? row = await client
+        .from('project_quotes')
+        .select('id,quote_code,request_id,status,total_aed,valid_until')
+        .eq('request_id', requestId)
+        .maybeSingle();
+    return row == null ? null : ProjectQuoteRecord.fromJson(row);
+  }
+
+  @override
   Future<void> requestAnalysis(String requestId) async {
     _user;
     await client.functions.invoke(
@@ -164,4 +178,16 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
   @override
   Future<void> approveScope(String requestId) =>
       _transitionWorkflow(requestId, 'approve');
+
+  @override
+  Future<void> acceptQuote(String quoteId) async {
+    _user;
+    await client.functions.invoke(
+      'quote-action',
+      body: <String, dynamic>{
+        'action': 'accept',
+        'quote_id': quoteId,
+      },
+    );
+  }
 }
