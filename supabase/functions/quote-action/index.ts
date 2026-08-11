@@ -115,6 +115,7 @@ Deno.serve(async (req: Request) => {
     const message = error instanceof Error ? error.message : String(error)
     if (message.includes('invalid_amount')) return json({ error: 'invalid_amount' }, 400)
     if (message.includes('staff_permission_required')) return json({ error: 'staff_permission_required' }, 403)
+    if (message.includes('verified_customer_required')) return json({ error: 'verified_customer_required' }, 409)
     if (message.includes('verified_account_required')) return json({ error: 'verified_account_required' }, 403)
     if (message.includes('forbidden')) return json({ error: 'forbidden' }, 403)
     if (message.includes('request_not_found') || message.includes('quote_not_found')) return json({ error: 'not_found' }, 404)
