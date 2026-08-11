@@ -1,0 +1,68 @@
+name: EVENTO Control Plane V1 Preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/control_plane/**'
+      - 'lib/main_control_plane.dart'
+      - 'lib/core/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/control-plane-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter 3.44.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 3.44.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+
+      - name: Generate Android wrapper
+        shell: bash
+        run: flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile .
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze lib/control_plane lib/main_control_plane.dart
+
+      - name: Build preview APK
+        shell: bash
+        run: |
+          flutter build apk --debug \
+            -t lib/main_control_plane.dart \
+            --dart-define=SUPABASE_URL=https://jaxhaiaftpegcodkzaus.supabase.co \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_DXERnH5OYjEcypugbP0FZA_nYwM9Tvt
+          cp build/app/outputs/flutter-apk/app-debug.apk evento-control-plane-v1.apk
+          sha256sum evento-control-plane-v1.apk > evento-control-plane-v1.apk.sha256
+
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-control-plane-v1-apk
+          path: |
+            evento-control-plane-v1.apk
+            evento-control-plane-v1.apk.sha256
+          retention-days: 14
+          if-no-files-found: error
