@@ -413,7 +413,8 @@ class _QuoteApprovalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (quote == null) {
+    final value = quote;
+    if (value == null) {
       return _WorkflowInfo(
         title: arabic ? 'جاري تحميل عرض السعر' : 'Loading quotation',
         text: arabic
@@ -437,20 +438,20 @@ class _QuoteApprovalCard extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 4),
-          Text(quote.quoteCode, style: const TextStyle(color: EventoColors.muted)),
+          Text(value.quoteCode, style: const TextStyle(color: EventoColors.muted)),
           const SizedBox(height: 8),
           Text(
-            'AED ${quote.totalAed.toStringAsFixed(2)}',
+            'AED ${value.totalAed.toStringAsFixed(2)}',
             style: const TextStyle(
               color: EventoColors.gold,
               fontWeight: FontWeight.w900,
               fontSize: 24,
             ),
           ),
-          if (quote.validUntil != null) ...[
+          if (value.validUntil != null) ...[
             const SizedBox(height: 4),
             Text(
-              '${arabic ? 'صالح حتى' : 'Valid until'}: ${quote.validUntil!.toLocal()}',
+              '${arabic ? 'صالح حتى' : 'Valid until'}: ${value.validUntil!.toLocal()}',
               style: const TextStyle(color: EventoColors.muted, fontSize: 12),
             ),
           ],
@@ -458,7 +459,7 @@ class _QuoteApprovalCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: busy || quote.status != 'sent' ? null : onAccept,
+              onPressed: busy || value.status != 'sent' ? null : onAccept,
               icon: const Icon(Icons.check_circle_outline),
               label: Text(arabic ? 'أوافق على عرض السعر' : 'Accept quotation'),
             ),
