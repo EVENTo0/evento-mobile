@@ -1,0 +1,90 @@
+name: EVENTO Runtime Reconciliation Client
+
+on:
+  pull_request:
+    branches: [feat/evento-control-plane-v1]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'supabase/functions/contract-action/**'
+      - '.github/workflows/runtime-reconciliation-client.yml'
+  push:
+    branches: [feat/runtime-reconciliation-client-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  reconciled-android-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter 3.44.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 3.44.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+
+      - name: Generate Android wrapper
+        run: flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile .
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze reconciled client
+        shell: bash
+        run: |
+          flutter analyze \
+            lib/rc6_app.dart \
+            lib/data/repositories/project_request_repository.dart \
+            lib/domain/project_quote.dart \
+            lib/domain/project_contract.dart \
+            lib/domain/project_workflow.dart
+
+      - name: Run reconciled workflow tests
+        run: flutter test test/rc6_workflow_test.dart test/project_quote_test.dart test/project_contract_test.dart --reporter expanded
+
+      - name: Verify contract Edge Function source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/functions/contract-action/index.ts
+          grep -q "verified_account_required" supabase/functions/contract-action/index.ts
+          grep -q "evento_accept_contract_v1" supabase/functions/contract-action/index.ts
+          grep -q "contract_version_id" supabase/functions/contract-action/index.ts
+          if git grep -nEI '(sk_live_[A-Za-z0-9]{20,}|rk_live_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_-]{20,})'; then
+            echo 'Production secret pattern found in source.'
+            exit 1
+          fi
+
+      - name: Build isolated reconciliation APK
+        shell: bash
+        run: |
+          flutter build apk --debug \
+            -t lib/main_control_plane.dart \
+            --dart-define=SUPABASE_URL=https://zgyovnqjmaognsjyylvk.supabase.co \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_6vo6sCaTX7mSs_nXmBMPxg_YYhWSTgn
+          cp build/app/outputs/flutter-apk/app-debug.apk evento-runtime-reconciliation.apk
+          sha256sum evento-runtime-reconciliation.apk > evento-runtime-reconciliation.apk.sha256
+
+      - name: Upload isolated preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: evento-runtime-reconciliation-apk
+          path: |
+            evento-runtime-reconciliation.apk
+            evento-runtime-reconciliation.apk.sha256
+          retention-days: 7
+          if-no-files-found: error
