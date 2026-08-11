@@ -4,9 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'lib/control_plane/**'
-      - 'lib/main_control_plane.dart'
-      - 'lib/core/**'
+      - 'lib/**'
+      - 'test/**'
+      - 'supabase/**'
       - 'pubspec.yaml'
       - '.github/workflows/control-plane-preview.yml'
   workflow_dispatch:
@@ -44,8 +44,19 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Analyze
-        run: flutter analyze lib/control_plane lib/main_control_plane.dart
+      - name: Analyze Control Plane and revenue workflow
+        shell: bash
+        run: |
+          flutter analyze \
+            lib/control_plane \
+            lib/main_control_plane.dart \
+            lib/rc6_app.dart \
+            lib/data/repositories/project_request_repository.dart \
+            lib/domain/project_quote.dart \
+            lib/domain/project_workflow.dart
+
+      - name: Run workflow and quote tests
+        run: flutter test test/rc6_workflow_test.dart test/project_quote_test.dart --reporter expanded
 
       - name: Build preview APK
         shell: bash
