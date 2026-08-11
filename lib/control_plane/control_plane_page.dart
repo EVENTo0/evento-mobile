@@ -57,6 +57,14 @@ class _EventoControlPlanePageState extends State<EventoControlPlanePage> {
               .from('project_request_events')
               .select('request_id,status,created_at'))
           .cast<Map<String, dynamic>>();
+      final quotes = (await client
+              .from('project_quotes')
+              .select('id,status,total_aed,created_at'))
+          .cast<Map<String, dynamic>>();
+      final buildQueue = (await client
+              .from('project_build_queue')
+              .select('id,status,created_at'))
+          .cast<Map<String, dynamic>>();
 
       final analyzed = requests.where((row) => row['status'] == 'analyzed').length;
       final awaitingScope =
@@ -65,6 +73,12 @@ class _EventoControlPlanePageState extends State<EventoControlPlanePage> {
         final stage = row['current_stage']?.toString();
         return stage != null && stage.isNotEmpty && stage != 'completed';
       }).length;
+      final acceptedQuotes = quotes.where((row) => row['status'] == 'accepted').length;
+      final pendingPayment =
+          buildQueue.where((row) => row['status'] == 'pending_payment').length;
+      final contractedValueAed = quotes
+          .where((row) => row['status'] == 'accepted')
+          .fold<double>(0, (sum, row) => sum + _asDouble(row['total_aed']));
 
       if (!mounted) return;
       setState(() {
@@ -76,6 +90,11 @@ class _EventoControlPlanePageState extends State<EventoControlPlanePage> {
           activeWorkflows: activeWorkflows,
           events: events.length,
           analyses: analyses.length,
+          quotes: quotes.length,
+          acceptedQuotes: acceptedQuotes,
+          pendingPayment: pendingPayment,
+          buildQueue: buildQueue.length,
+          contractedValueAed: contractedValueAed,
           refreshedAt: DateTime.now(),
         );
       });
@@ -139,47 +158,72 @@ class _EventoControlPlanePageState extends State<EventoControlPlanePage> {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 1.35,
+                childAspectRatio: 1.30,
                 children: [
                   _MetricCard(
                     label: _arabic ? 'طلبات المشاريع' : 'Project requests',
-                    value: _snapshot.requests,
+                    value: '${_snapshot.requests}',
                     icon: Icons.inbox_outlined,
                   ),
                   _MetricCard(
                     label: _arabic ? 'تحليلات مكتملة' : 'Analyses complete',
-                    value: _snapshot.analyses,
+                    value: '${_snapshot.analyses}',
                     icon: Icons.psychology_outlined,
                   ),
                   _MetricCard(
                     label: _arabic ? 'بانتظار النطاق' : 'Awaiting scope',
-                    value: _snapshot.awaitingScope,
+                    value: '${_snapshot.awaitingScope}',
                     icon: Icons.rule_folder_outlined,
                   ),
                   _MetricCard(
                     label: _arabic ? 'مسارات تنفيذ' : 'Workflows',
-                    value: _snapshot.workflows,
+                    value: '${_snapshot.workflows}',
                     icon: Icons.account_tree_outlined,
                   ),
                   _MetricCard(
+                    label: _arabic ? 'عروض الأسعار' : 'Quotes',
+                    value: '${_snapshot.quotes}',
+                    icon: Icons.request_quote_outlined,
+                  ),
+                  _MetricCard(
+                    label: _arabic ? 'عروض مقبولة' : 'Accepted quotes',
+                    value: '${_snapshot.acceptedQuotes}',
+                    icon: Icons.task_alt_outlined,
+                  ),
+                  _MetricCard(
+                    label: _arabic ? 'بانتظار الدفع' : 'Pending payment',
+                    value: '${_snapshot.pendingPayment}',
+                    icon: Icons.payments_outlined,
+                  ),
+                  _MetricCard(
+                    label: _arabic ? 'طابور البناء' : 'Build queue',
+                    value: '${_snapshot.buildQueue}',
+                    icon: Icons.construction_outlined,
+                  ),
+                  _MetricCard(
                     label: _arabic ? 'مسارات نشطة' : 'Active workflows',
-                    value: _snapshot.activeWorkflows,
+                    value: '${_snapshot.activeWorkflows}',
                     icon: Icons.play_circle_outline,
                   ),
                   _MetricCard(
                     label: _arabic ? 'أحداث مسجلة' : 'Recorded events',
-                    value: _snapshot.events,
+                    value: '${_snapshot.events}',
                     icon: Icons.timeline_outlined,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
+              _MoneyCard(
+                arabic: _arabic,
+                valueAed: _snapshot.contractedValueAed,
+              ),
+              const SizedBox(height: 16),
               _InfoCard(
                 icon: Icons.shield_outlined,
-                title: _arabic ? 'حدود الإصدار الحالي' : 'Current release boundary',
+                title: _arabic ? 'وصول قائم على الصلاحيات' : 'Role-aware access',
                 text: _arabic
-                    ? 'هذه الشاشة تقرأ فقط البيانات التي تسمح بها سياسات Supabase للمستخدم المسجل. لوحة مالك الشركة الكاملة، الإيرادات، المدفوعات، الفريق، الوكلاء، Builds وDeployments ستضاف بطبقة صلاحيات إدارية منفصلة وآمنة.'
-                    : 'This screen reads only the rows permitted by Supabase policies for the signed-in user. Company-owner metrics, revenue, payments, team, agents, builds and deployments will use a separate secure admin authorization layer.',
+                    ? 'تقرأ لوحة المالك والعمليات بيانات الشركة عبر صلاحيات EVENTO الداخلية، بينما يرى العميل بياناته فقط. الحسابات المجهولة تبقى في مسار التجربة والتحليل ولا تستطيع عبور بوابة Workflow التجارية.'
+                    : 'Owner and operations accounts read company-wide data through EVENTO staff authorization, while customers see only their own records. Anonymous accounts remain limited to the demo/analysis path and cannot cross the commercial workflow gate.',
                 accent: EventoColors.cyan,
               ),
               if (_snapshot.refreshedAt != null) ...[
@@ -244,8 +288,8 @@ class _StatusHero extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             arabic
-                ? 'نقطة البداية لمراقبة الطلبات، التنفيذ، العملاء، الإيرادات، الذكاء الاصطناعي والبنية التشغيلية من شاشة واحدة.'
-                : 'The foundation for monitoring requests, delivery, customers, revenue, AI and infrastructure from one screen.',
+                ? 'مراقبة الطلبات، النطاق، عروض الأسعار، بوابة الدفع، طابور البناء والبنية التشغيلية من شاشة واحدة.'
+                : 'Monitor requests, scope, quotations, the payment gate, build queue and operational infrastructure from one screen.',
           ),
         ],
       ),
@@ -257,7 +301,7 @@ class _MetricCard extends StatelessWidget {
   const _MetricCard({required this.label, required this.value, required this.icon});
 
   final String label;
-  final int value;
+  final String value;
   final IconData icon;
 
   @override
@@ -271,7 +315,7 @@ class _MetricCard extends StatelessWidget {
           children: [
             Icon(icon, color: EventoColors.cyan),
             Text(
-              '$value',
+              value,
               style: Theme.of(context)
                   .textTheme
                   .headlineMedium
@@ -280,6 +324,50 @@ class _MetricCard extends StatelessWidget {
             Text(label, style: const TextStyle(color: EventoColors.muted)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard({required this.arabic, required this.valueAed});
+
+  final bool arabic;
+  final double valueAed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: EventoColors.panelSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: EventoColors.gold.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.trending_up, color: EventoColors.gold),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  arabic ? 'قيمة العروض المقبولة' : 'Accepted quote value',
+                  style: const TextStyle(color: EventoColors.muted),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'AED ${valueAed.toStringAsFixed(2)}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w900, color: EventoColors.gold),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -337,6 +425,11 @@ class _ControlPlaneSnapshot {
     required this.activeWorkflows,
     required this.events,
     required this.analyses,
+    required this.quotes,
+    required this.acceptedQuotes,
+    required this.pendingPayment,
+    required this.buildQueue,
+    required this.contractedValueAed,
     required this.refreshedAt,
   });
 
@@ -348,6 +441,11 @@ class _ControlPlaneSnapshot {
         activeWorkflows = 0,
         events = 0,
         analyses = 0,
+        quotes = 0,
+        acceptedQuotes = 0,
+        pendingPayment = 0,
+        buildQueue = 0,
+        contractedValueAed = 0,
         refreshedAt = null;
 
   final int requests;
@@ -357,5 +455,15 @@ class _ControlPlaneSnapshot {
   final int activeWorkflows;
   final int events;
   final int analyses;
+  final int quotes;
+  final int acceptedQuotes;
+  final int pendingPayment;
+  final int buildQueue;
+  final double contractedValueAed;
   final DateTime? refreshedAt;
+}
+
+double _asDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
 }
