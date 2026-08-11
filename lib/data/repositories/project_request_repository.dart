@@ -23,6 +23,7 @@ abstract interface class ProjectRequestRepository {
   Future<void> startWorkflow(String requestId);
   Future<void> approveScope(String requestId);
   Future<void> acceptQuote(String quoteId);
+  Future<Uri> createStripeCheckout(String quoteId);
 }
 
 class BackendNotConfiguredException implements Exception {
@@ -189,5 +190,26 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
         'quote_id': quoteId,
       },
     );
+  }
+
+  @override
+  Future<Uri> createStripeCheckout(String quoteId) async {
+    _user;
+    final response = await client.functions.invoke(
+      'create-stripe-checkout',
+      body: <String, dynamic>{'quote_id': quoteId},
+    );
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('EVENTO checkout could not be created.');
+    }
+    final data = response.data;
+    if (data is! Map || data['checkout_url'] is! String) {
+      throw StateError('EVENTO checkout URL is missing.');
+    }
+    final uri = Uri.tryParse(data['checkout_url'] as String);
+    if (uri == null || uri.scheme != 'https') {
+      throw StateError('EVENTO checkout URL is invalid.');
+    }
+    return uri;
   }
 }
