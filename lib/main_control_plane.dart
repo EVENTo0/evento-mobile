@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'control_plane/contract_center_page.dart';
 import 'control_plane/control_plane_page.dart';
 import 'control_plane/quote_center_page.dart';
 import 'core/backend_config.dart';
@@ -53,6 +54,7 @@ class _ControlPlaneShellState extends State<_ControlPlaneShell> {
         children: const [
           EventoControlPlanePage(),
           EventoQuoteCenterPage(),
+          EventoContractCenterPage(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -68,6 +70,11 @@ class _ControlPlaneShellState extends State<_ControlPlaneShell> {
             icon: Icon(Icons.request_quote_outlined),
             selectedIcon: Icon(Icons.request_quote),
             label: 'Quotes',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.description_outlined),
+            selectedIcon: Icon(Icons.description),
+            label: 'Contracts',
           ),
         ],
       ),
