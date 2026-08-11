@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.111.0'
 
 type Payload = {
-  action?: 'create_draft' | 'send' | 'accept'
+  action?: 'create_draft' | 'approve_for_use' | 'send' | 'accept'
   quote_id?: string
   contract_version_id?: string
   terms_version?: string
@@ -10,7 +10,7 @@ type Payload = {
   acceptance_criteria?: unknown
   rendered_terms_ar?: string
   rendered_terms_en?: string | null
-  legal_review_status?: 'required' | 'reviewed' | 'approved_for_use'
+  review_note?: string
   valid_until?: string | null
 }
 
@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
         p_payment_terms: { mode: 'full' },
         p_rendered_terms_ar: renderedAr,
         p_rendered_terms_en: payload.rendered_terms_en?.trim() || null,
-        p_legal_review_status: payload.legal_review_status ?? 'required',
+        p_legal_review_status: 'required',
         p_valid_until: payload.valid_until ?? null,
       })
       if (error) throw error
@@ -99,6 +99,18 @@ Deno.serve(async (req: Request) => {
 
     if (!payload.contract_version_id) {
       return json({ error: 'contract_version_id_required' }, 400)
+    }
+
+    if (payload.action === 'approve_for_use') {
+      const reviewNote = payload.review_note?.trim() ?? ''
+      if (reviewNote.length < 20) return json({ error: 'legal_review_note_required' }, 400)
+      const { data, error } = await admin.rpc('evento_approve_contract_for_use_v1', {
+        p_actor_user_id: userData.user.id,
+        p_contract_version_id: payload.contract_version_id,
+        p_review_note: reviewNote,
+      })
+      if (error) throw error
+      return json({ ok: true, contract: data })
     }
 
     if (payload.action === 'send') {
@@ -122,16 +134,21 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'invalid_action' }, 400)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    if (message.includes('staff_permission_required')) return json({ error: 'staff_permission_required' }, 403)
+    if (message.includes('staff_permission_required') || message.includes('owner_or_admin_required')) {
+      return json({ error: 'staff_permission_required' }, 403)
+    }
     if (message.includes('verified_account_required')) return json({ error: 'verified_account_required' }, 403)
     if (message.includes('forbidden')) return json({ error: 'forbidden' }, 403)
     if (message.includes('quote_not_found') || message.includes('contract_not_found')) return json({ error: 'not_found' }, 404)
     if (message.includes('contract_expired')) return json({ error: 'contract_expired' }, 409)
-    if (message.includes('legal_review_required')) return json({ error: 'legal_review_required' }, 409)
+    if (message.includes('legal_review_required') || message.includes('legal_review_must_start_required')) {
+      return json({ error: 'legal_review_required' }, 409)
+    }
+    if (message.includes('legal_review_note_required')) return json({ error: 'legal_review_note_required' }, 400)
     if (message.includes('accepted_quote_required') || message.includes('quote_acceptance_evidence_required')) {
       return json({ error: 'accepted_quote_required' }, 409)
     }
-    if (message.includes('contract_not_sendable') || message.includes('contract_not_acceptable')) {
+    if (message.includes('draft_contract_required') || message.includes('contract_not_sendable') || message.includes('contract_not_acceptable')) {
       return json({ error: 'invalid_transition' }, 409)
     }
     console.error('contract action failed')
