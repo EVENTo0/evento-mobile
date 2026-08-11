@@ -47,6 +47,8 @@ jobs:
         shell: bash
         run: |
           flutter analyze \
+            lib/main_control_plane.dart \
+            lib/control_plane/contract_center_page.dart \
             lib/rc6_app.dart \
             lib/data/repositories/project_request_repository.dart \
             lib/domain/project_quote.dart \
@@ -62,8 +64,11 @@ jobs:
           set -euo pipefail
           test -f supabase/functions/contract-action/index.ts
           grep -q "verified_account_required" supabase/functions/contract-action/index.ts
+          grep -q "evento_create_contract_draft_v1" supabase/functions/contract-action/index.ts
+          grep -q "evento_approve_contract_for_use_v1" supabase/functions/contract-action/index.ts
+          grep -q "evento_send_contract_v1" supabase/functions/contract-action/index.ts
           grep -q "evento_accept_contract_v1" supabase/functions/contract-action/index.ts
-          grep -q "contract_version_id" supabase/functions/contract-action/index.ts
+          grep -q "p_legal_review_status: 'required'" supabase/functions/contract-action/index.ts
           if git grep -nEI '(sk_live_[A-Za-z0-9]{20,}|rk_live_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_-]{20,})'; then
             echo 'Production secret pattern found in source.'
             exit 1
