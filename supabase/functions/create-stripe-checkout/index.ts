@@ -19,6 +19,11 @@ const getAdminKey = () => {
 const isTestStripeKey = (value: string) =>
   value.startsWith('rk_test_') || value.startsWith('sk_test_')
 
+const testOnlyProjectRefs = new Set(['zgyovnqjmaognsjyylvk'])
+const projectRefFromUrl = (value: string) => {
+  try { return new URL(value).hostname.split('.')[0] ?? '' } catch { return '' }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({error:'method_not_allowed'},405)
   const authorization = req.headers.get('authorization') ?? ''
@@ -30,7 +35,7 @@ Deno.serve(async (req: Request) => {
   const stripeKey = Deno.env.get('STRIPE_RESTRICTED_KEY') ?? Deno.env.get('STRIPE_SECRET_KEY') ?? ''
   const successUrl = Deno.env.get('EVENTO_CHECKOUT_SUCCESS_URL') ?? ''
   const cancelUrl = Deno.env.get('EVENTO_CHECKOUT_CANCEL_URL') ?? ''
-  const reconciliationMode = Deno.env.get('EVENTO_RECONCILIATION_MODE') === 'test-only'
+  const reconciliationMode = testOnlyProjectRefs.has(projectRefFromUrl(supabaseUrl))
   if (!supabaseUrl || !adminKey || !stripeKey || !successUrl || !cancelUrl) {
     return json({error:'server_configuration_required'},503)
   }
