@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/project_contract.dart';
 import '../../domain/project_quote.dart';
 import '../../domain/project_request.dart';
 import '../../domain/project_workflow.dart';
@@ -19,10 +20,12 @@ abstract interface class ProjectRequestRepository {
   Future<List<RequestEventRecord>> getEvents(String requestId);
   Future<ProjectWorkflowRecord?> getWorkflow(String requestId);
   Future<ProjectQuoteRecord?> getQuote(String requestId);
+  Future<ProjectContractVersionRecord?> getContract(String requestId);
   Future<void> requestAnalysis(String requestId);
   Future<void> startWorkflow(String requestId);
   Future<void> approveScope(String requestId);
   Future<void> acceptQuote(String quoteId);
+  Future<void> acceptContract(String contractVersionId);
   Future<Uri> createStripeCheckout(String quoteId);
 }
 
@@ -153,6 +156,21 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
   }
 
   @override
+  Future<ProjectContractVersionRecord?> getContract(String requestId) async {
+    _user;
+    final Map<String, dynamic>? row = await client
+        .from('project_contract_versions')
+        .select(
+          'id,contract_code,request_id,quote_id,version_number,status,terms_version,statement_of_work,deliverables,acceptance_criteria,rendered_terms_ar,rendered_terms_en,legal_review_status,valid_until,accepted_at',
+        )
+        .eq('request_id', requestId)
+        .order('version_number', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    return row == null ? null : ProjectContractVersionRecord.fromJson(row);
+  }
+
+  @override
   Future<void> requestAnalysis(String requestId) async {
     _user;
     await client.functions.invoke(
@@ -188,6 +206,18 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
       body: <String, dynamic>{
         'action': 'accept',
         'quote_id': quoteId,
+      },
+    );
+  }
+
+  @override
+  Future<void> acceptContract(String contractVersionId) async {
+    _user;
+    await client.functions.invoke(
+      'contract-action',
+      body: <String, dynamic>{
+        'action': 'accept',
+        'contract_version_id': contractVersionId,
       },
     );
   }
