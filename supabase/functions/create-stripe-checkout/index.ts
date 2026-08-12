@@ -16,6 +16,9 @@ const getAdminKey = () => {
   return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 }
 
+const isTestStripeKey = (value: string) =>
+  value.startsWith('rk_test_') || value.startsWith('sk_test_')
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({error:'method_not_allowed'},405)
   const authorization = req.headers.get('authorization') ?? ''
@@ -27,8 +30,12 @@ Deno.serve(async (req: Request) => {
   const stripeKey = Deno.env.get('STRIPE_RESTRICTED_KEY') ?? Deno.env.get('STRIPE_SECRET_KEY') ?? ''
   const successUrl = Deno.env.get('EVENTO_CHECKOUT_SUCCESS_URL') ?? ''
   const cancelUrl = Deno.env.get('EVENTO_CHECKOUT_CANCEL_URL') ?? ''
+  const reconciliationMode = Deno.env.get('EVENTO_RECONCILIATION_MODE') === 'test-only'
   if (!supabaseUrl || !adminKey || !stripeKey || !successUrl || !cancelUrl) {
     return json({error:'server_configuration_required'},503)
+  }
+  if (reconciliationMode && !isTestStripeKey(stripeKey)) {
+    return json({error:'test_stripe_key_required'},503)
   }
 
   const admin = createClient(supabaseUrl, adminKey, {auth:{persistSession:false,autoRefreshToken:false}})
@@ -47,6 +54,7 @@ Deno.serve(async (req: Request) => {
   })
   if (prepareError || !prepared) {
     const msg = prepareError?.message ?? ''
+    if (msg.includes('accepted_contract_required')) return json({error:'accepted_contract_required'},409)
     if (msg.includes('quote_not_accepted')) return json({error:'quote_not_accepted'},409)
     if (msg.includes('forbidden')) return json({error:'forbidden'},403)
     return json({error:'payment_prepare_failed'},500)
