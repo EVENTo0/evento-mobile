@@ -7,6 +7,8 @@ on:
       - 'lib/**'
       - 'test/**'
       - 'supabase/functions/contract-action/**'
+      - 'supabase/functions/create-stripe-checkout/**'
+      - 'supabase/functions/stripe-webhook/**'
       - '.github/workflows/runtime-reconciliation-client.yml'
   push:
     branches: [feat/runtime-reconciliation-client-v1]
@@ -58,17 +60,26 @@ jobs:
       - name: Run reconciled workflow tests
         run: flutter test test/rc6_workflow_test.dart test/project_quote_test.dart test/project_contract_test.dart --reporter expanded
 
-      - name: Verify contract Edge Function source boundary
+      - name: Verify commercial Edge Function boundaries
         shell: bash
         run: |
           set -euo pipefail
           test -f supabase/functions/contract-action/index.ts
+          test -f supabase/functions/create-stripe-checkout/index.ts
+          test -f supabase/functions/stripe-webhook/index.ts
           grep -q "verified_account_required" supabase/functions/contract-action/index.ts
           grep -q "evento_create_contract_draft_v1" supabase/functions/contract-action/index.ts
           grep -q "evento_approve_contract_for_use_v1" supabase/functions/contract-action/index.ts
           grep -q "evento_send_contract_v1" supabase/functions/contract-action/index.ts
           grep -q "evento_accept_contract_v1" supabase/functions/contract-action/index.ts
           grep -q "p_legal_review_status: 'required'" supabase/functions/contract-action/index.ts
+          grep -q "zgyovnqjmaognsjyylvk" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "rk_test_" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "sk_test_" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "test_stripe_key_required" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "2026-06-24.dahlia" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "integration_identifier" supabase/functions/create-stripe-checkout/index.ts
+          grep -q "validStripeSignature" supabase/functions/stripe-webhook/index.ts
           if git grep -nEI '(sk_live_[A-Za-z0-9]{20,}|rk_live_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_-]{20,})'; then
             echo 'Production secret pattern found in source.'
             exit 1
