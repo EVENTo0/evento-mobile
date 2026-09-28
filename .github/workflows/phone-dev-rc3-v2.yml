@@ -56,24 +56,12 @@ jobs:
           set -euo pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize legacy bootstrap for strict analysis
-        id: source_normalize
+      - name: Pin Android API 36
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY' 2>&1 | tee ci-logs/02b-source-normalize.log
-          from pathlib import Path
-          legacy = Path('lib/main.dart')
-          if legacy.exists():
-              s = legacy.read_text()
-              s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-              legacy.write_text(s)
-          rc4 = Path('lib/rc4_app.dart')
-          if rc4.exists():
-              s = rc4.read_text().replace("import 'data/demo_analysis.dart';\n", '')
-              rc4.write_text(s)
-          print('Source normalization complete.')
-          PY
+          python3 tool/configure_android_api36.py
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Resolve dependencies
         id: pub_get
@@ -188,6 +176,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           BADGING="$($AAPT dump badging evento-dev.apk | head -n 1)"
           echo "$BADGING" | tee ci-logs/10-apk-identity.log
+          "$AAPT" dump badging evento-dev.apk | grep -F "targetSdkVersion:'36'" >> ci-logs/10-apk-identity.log
           echo "$BADGING" | grep -q "package: name='$EVENTO_APPLICATION_ID'"
           APK_VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
           test "$APK_VERSION_CODE" = "$EVENTO_BUILD_NUMBER"
