@@ -1,0 +1,69 @@
+name: EVENTO Mobile PR Verification
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.9'
+  CI: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the existing pinned Flutter baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+      - name: Resolve dependencies and verify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs
+          flutter --version | tee ci-logs/flutter-version.log
+          flutter pub get --enforce-lockfile 2>&1 | tee ci-logs/pub-get.log
+          flutter analyze 2>&1 | tee ci-logs/analyze.log
+          flutter test --reporter expanded 2>&1 | tee ci-logs/tests.log
+          python3 -m unittest discover -s tool -p 'test_*.py'
+      - name: Generate Android API 36 wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile .
+          python3 tool/configure_android_api36.py
+          git restore --source=HEAD --worktree -- pubspec.lock
+      - name: Build isolated demo APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --debug -t lib/main_rc6.dart 2>&1 | tee ci-logs/build.log
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging build/app/outputs/flutter-apk/app-debug.apk > ci-logs/apk-badging.log
+          grep -Fq "targetSdkVersion:'36'" ci-logs/apk-badging.log
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk > ci-logs/apk.sha256
+      - name: Preserve verification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-pr-evidence-${{ github.run_id }}
+          path: ci-logs
+          retention-days: 14
+          if-no-files-found: warn

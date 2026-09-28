@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/backend_config.dart';
 import 'core/evento_theme.dart';
-import 'data/demo_analysis.dart';
 import 'data/portfolio_catalog.dart';
 import 'data/repositories/project_request_repository.dart';
 import 'domain/portfolio_project.dart';
