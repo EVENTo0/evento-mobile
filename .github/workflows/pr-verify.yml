@@ -17,7 +17,7 @@ env:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           mkdir -p ci-logs
           flutter --version | tee ci-logs/flutter-version.log
-          flutter pub get 2>&1 | tee ci-logs/pub-get.log
+          flutter pub get --enforce-lockfile 2>&1 | tee ci-logs/pub-get.log
           flutter analyze 2>&1 | tee ci-logs/analyze.log
           flutter test --reporter expanded 2>&1 | tee ci-logs/tests.log
           python3 -m unittest discover -s tool -p 'test_*.py'
@@ -50,6 +50,7 @@ jobs:
           set -euo pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile .
           python3 tool/configure_android_api36.py
+          git restore --source=HEAD --worktree -- pubspec.lock
       - name: Build isolated demo APK
         shell: bash
         run: |

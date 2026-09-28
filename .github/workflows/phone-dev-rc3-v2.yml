@@ -23,7 +23,7 @@ env:
 jobs:
   android-dev:
     name: Validate RC6 and build phone update APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
@@ -61,14 +61,15 @@ jobs:
         run: |
           set -euo pipefail
           python3 tool/configure_android_api36.py
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          git restore --source=HEAD --worktree -- pubspec.lock
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Resolve dependencies
         id: pub_get
         shell: bash
         run: |
           set -euo pipefail
-          flutter pub get 2>&1 | tee ci-logs/03-pub-get.log
+          flutter pub get --enforce-lockfile 2>&1 | tee ci-logs/03-pub-get.log
 
       - name: Verify RC6 source contract
         id: rc6_contract
