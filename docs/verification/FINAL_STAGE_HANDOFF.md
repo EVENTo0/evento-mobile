@@ -48,3 +48,8 @@ in this document or in a client bundle.
 
 Official Android requirement checked 2026-09-28 UTC:
 https://developer.android.com/google/play/requirements/target-sdk
+
+
+## Separate ONE read-client foundation branch
+
+The new native `EventoOneApiClient` is intentionally opt-in and is not instantiated by `lib/main.dart`, RC6 or any existing entrypoint. The current entrypoints still use historical Supabase project-request contracts. Default-entry initialization now displays TEST, not LIVE; DEMO remains unconfigured mode. See `docs/authority/ONE_READ_CLIENT_V1.md` for delivered transport checks and remaining **code adoption** work. Hosted values alone do not complete this integration.
