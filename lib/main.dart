@@ -70,7 +70,7 @@ class _EventoAppState extends State<EventoApp> {
             title: const Text('EVENTO'),
             backgroundColor: const Color(0xFF06111F),
             actions: [
-              _LiveIndicator(configured: widget.liveConfigured),
+              BackendModeIndicator(configured: widget.liveConfigured),
               IconButton(
                 tooltip: _arabic ? 'English' : 'العربية',
                 onPressed: () => setState(() => _arabic = !_arabic),
@@ -140,8 +140,8 @@ class _EventoAppState extends State<EventoApp> {
   }
 }
 
-class _LiveIndicator extends StatelessWidget {
-  const _LiveIndicator({required this.configured});
+class BackendModeIndicator extends StatelessWidget {
+  const BackendModeIndicator({super.key, required this.configured});
 
   final bool configured;
 
@@ -159,7 +159,7 @@ class _LiveIndicator extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            configured ? 'LIVE' : 'DEMO',
+            configured ? 'TEST' : 'DEMO',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -456,8 +456,8 @@ class _RequestScreenState extends State<RequestScreen> {
         if (!mounted) return;
         setState(() {
           _result = widget.arabic
-              ? 'تم حفظ الطلب ${created['request_code']} في EVENTO Live.\n$localAnalysis'
-              : 'Request ${created['request_code']} saved to EVENTO Live.\n$localAnalysis';
+              ? 'تم حفظ الطلب ${created['request_code']} في بيئة اختبار EVENTO.\n$localAnalysis'
+              : 'Request ${created['request_code']} saved to the EVENTO test backend.\n$localAnalysis';
         });
       } catch (error) {
         if (!mounted) return;
@@ -722,7 +722,7 @@ class _AccountScreenState extends State<AccountScreen> {
             child: ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person)),
               title: Text(client!.auth.currentUser?.email ?? 'EVENTO user'),
-              subtitle: Text(widget.arabic ? 'متصل بـ EVENTO Live' : 'Connected to EVENTO Live'),
+              subtitle: Text(widget.arabic ? 'متصل ببيئة اختبار EVENTO' : 'Connected to the EVENTO test backend.'),
               trailing: IconButton(
                 tooltip: widget.arabic ? 'تسجيل الخروج' : 'Sign out',
                 onPressed: () async {

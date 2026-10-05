@@ -1,8 +1,29 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:evento_mobile/main.dart';
 
 void main() {
+  testWidgets(
+    'backend initialization indicates TEST, never release acceptance',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: BackendModeIndicator(configured: true)),
+        ),
+      );
+      expect(find.text('TEST'), findsOneWidget);
+      expect(find.text('LIVE'), findsNothing);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: BackendModeIndicator(configured: false)),
+        ),
+      );
+      expect(find.text('DEMO'), findsOneWidget);
+      expect(find.text('LIVE'), findsNothing);
+    },
+  );
+
   testWidgets('EVENTO shell loads and navigates to request', (tester) async {
     await tester.pumpWidget(const EventoApp(liveConfigured: false));
 
