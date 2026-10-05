@@ -23,17 +23,17 @@ env:
 jobs:
   android-dev:
     name: Validate RC6 and build phone update APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
       - name: Checkout EVENTO
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -56,31 +56,20 @@ jobs:
           set -euo pipefail
           flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile . 2>&1 | tee ci-logs/02-android-wrapper.log
 
-      - name: Normalize legacy bootstrap for strict analysis
-        id: source_normalize
+      - name: Pin Android API 36
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY' 2>&1 | tee ci-logs/02b-source-normalize.log
-          from pathlib import Path
-          legacy = Path('lib/main.dart')
-          if legacy.exists():
-              s = legacy.read_text()
-              s = s.replace('anonKey: _supabasePublishableKey,', 'publishableKey: _supabasePublishableKey,')
-              legacy.write_text(s)
-          rc4 = Path('lib/rc4_app.dart')
-          if rc4.exists():
-              s = rc4.read_text().replace("import 'data/demo_analysis.dart';\n", '')
-              rc4.write_text(s)
-          print('Source normalization complete.')
-          PY
+          python3 tool/configure_android_api36.py
+          git restore --source=HEAD --worktree -- pubspec.lock
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Resolve dependencies
         id: pub_get
         shell: bash
         run: |
           set -euo pipefail
-          flutter pub get 2>&1 | tee ci-logs/03-pub-get.log
+          flutter pub get --enforce-lockfile 2>&1 | tee ci-logs/03-pub-get.log
 
       - name: Verify RC6 source contract
         id: rc6_contract
@@ -188,6 +177,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           BADGING="$($AAPT dump badging evento-dev.apk | head -n 1)"
           echo "$BADGING" | tee ci-logs/10-apk-identity.log
+          "$AAPT" dump badging evento-dev.apk | grep -F "targetSdkVersion:'36'" >> ci-logs/10-apk-identity.log
           echo "$BADGING" | grep -q "package: name='$EVENTO_APPLICATION_ID'"
           APK_VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
           test "$APK_VERSION_CODE" = "$EVENTO_BUILD_NUMBER"
@@ -197,7 +187,7 @@ jobs:
 
       - name: Upload APK artifact
         id: artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: evento-dev-apk-rc6
           path: |
@@ -233,7 +223,7 @@ jobs:
 
       - name: Upload CI diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: evento-rc6-diagnostics-${{ github.run_number }}
           path: ci-logs

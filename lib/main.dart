@@ -13,7 +13,7 @@ Future<void> main() async {
     try {
       await Supabase.initialize(
         url: _supabaseUrl,
-        anonKey: _supabasePublishableKey,
+        publishableKey: _supabasePublishableKey,
       );
       liveConfigured = true;
     } catch (_) {
