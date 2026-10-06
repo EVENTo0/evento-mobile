@@ -1,0 +1,74 @@
+name: EVENTO Mobile ONE Preview Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.44.9'
+  CI: true
+
+jobs:
+  preview-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: g3-integrated-acceptance
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate Preview-only public configuration
+        env:
+          EVENTO_ONE_API_ORIGIN: ${{ vars.EVENTO_ONE_API_ORIGIN }}
+          EVENTO_ONE_SUPABASE_URL: ${{ vars.EVENTO_ONE_SUPABASE_URL }}
+          EVENTO_ONE_PUBLISHABLE_KEY: ${{ secrets.EVENTO_ONE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$EVENTO_ONE_API_ORIGIN"
+          test -n "$EVENTO_ONE_SUPABASE_URL"
+          test -n "$EVENTO_ONE_PUBLISHABLE_KEY"
+          case "$EVENTO_ONE_API_ORIGIN" in https://*) ;; *) exit 2;; esac
+          case "$EVENTO_ONE_SUPABASE_URL" in https://*) ;; *) exit 2;; esac
+          if printf '%s' "$EVENTO_ONE_PUBLISHABLE_KEY" | grep -Eqi 'service_role|sb_secret_'; then exit 2; fi
+          case "$EVENTO_ONE_SUPABASE_URL" in *fxdwjbajrudkzjlexmoy.supabase.co) ;; *) echo "Refusing non-G3 Supabase target"; exit 2;; esac
+      - name: Install Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+      - name: Resolve, test and generate API36 wrapper
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze
+          flutter test
+          flutter create --no-pub --platforms=android --org ae.evento --project-name evento_mobile .
+          python3 tool/configure_android_api36.py
+          git restore --source=HEAD --worktree -- pubspec.lock
+      - name: Build configured G3 TEST APK
+        env:
+          EVENTO_ONE_API_ORIGIN: ${{ vars.EVENTO_ONE_API_ORIGIN }}
+          EVENTO_ONE_SUPABASE_URL: ${{ vars.EVENTO_ONE_SUPABASE_URL }}
+          EVENTO_ONE_PUBLISHABLE_KEY: ${{ secrets.EVENTO_ONE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/one-preview.json" <<EOF
+          {"EVENTO_BACKEND_MODE":"one","EVENTO_ONE_API_ORIGIN":"$EVENTO_ONE_API_ORIGIN","EVENTO_ONE_SUPABASE_URL":"$EVENTO_ONE_SUPABASE_URL","EVENTO_ONE_PUBLISHABLE_KEY":"$EVENTO_ONE_PUBLISHABLE_KEY"}
+          EOF
+          flutter build apk --debug -t lib/main_one.dart --dart-define-from-file="$RUNNER_TEMP/one-preview.json"
+          rm -f "$RUNNER_TEMP/one-preview.json"
+          mkdir -p ci-apk
+          cp build/app/outputs/flutter-apk/app-debug.apk ci-apk/evento-one-g3-preview-api36.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging ci-apk/evento-one-g3-preview-api36.apk | grep -F "targetSdkVersion:'36'"
+          sha256sum ci-apk/evento-one-g3-preview-api36.apk > ci-apk/sha256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evento-one-G3-preview-API36-${{ github.sha }}
+          path: ci-apk
+          retention-days: 3
+          if-no-files-found: error

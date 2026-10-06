@@ -22,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-java@v6
         with:
@@ -42,7 +43,7 @@ jobs:
           flutter --version | tee ci-logs/flutter-version.log
           flutter pub get --enforce-lockfile 2>&1 | tee ci-logs/pub-get.log
           flutter analyze 2>&1 | tee ci-logs/analyze.log
-          flutter test --reporter expanded 2>&1 | tee ci-logs/tests.log
+          EVENTO_WIDGET_EVIDENCE_DIR="$PWD/ci-logs/rendered-widget-fixtures" EVENTO_WIDGET_FONT="$RUNNER_TEMP/flutter/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf" flutter test --reporter expanded 2>&1 | tee ci-logs/tests.log
           python3 -m unittest discover -s tool -p 'test_*.py'
       - name: Generate Android API 36 wrapper
         shell: bash
@@ -59,6 +60,36 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging build/app/outputs/flutter-apk/app-debug.apk > ci-logs/apk-badging.log
           grep -Fq "targetSdkVersion:'36'" ci-logs/apk-badging.log
           sha256sum build/app/outputs/flutter-apk/app-debug.apk > ci-logs/apk.sha256
+      - name: Build safe unconfigured ONE member APK at the exact PR head
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-apk
+          flutter build apk --debug -t lib/main_one.dart 2>&1 | tee ci-logs/one-build.log
+          cp build/app/outputs/flutter-apk/app-debug.apk ci-apk/evento-one-test-unconfigured-api36.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging ci-apk/evento-one-test-unconfigured-api36.apk > ci-logs/one-apk-badging.log
+          grep -Fq "targetSdkVersion:'36'" ci-logs/one-apk-badging.log
+          sha256sum ci-apk/evento-one-test-unconfigured-api36.apk > ci-logs/one-apk.sha256
+          git rev-parse HEAD > ci-logs/source-head.txt
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          apk = pathlib.Path('ci-apk/evento-one-test-unconfigured-api36.apk')
+          evidence = {
+            'sourceSha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+            'target': 'lib/main_one.dart', 'mode': 'TEST_UNCONFIGURED', 'targetSdk': 36,
+            'providerDefinesSupplied': False, 'signInEnabled': False, 'signing': 'Android debug only',
+            'apkSha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
+            'limits': ['No hosted Auth/API or physical-device proof', 'Provider configuration requires a separate test build'],
+          }
+          pathlib.Path('ci-logs/one-apk-provenance.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          PY
+      - name: Preserve unconfigured TEST APK for review
+        uses: actions/upload-artifact@v7
+        with:
+          name: evento-one-TEST-unconfigured-API36-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ci-apk/evento-one-test-unconfigured-api36.apk
+          retention-days: 7
+          if-no-files-found: error
       - name: Preserve verification evidence
         if: always()
         uses: actions/upload-artifact@v7
