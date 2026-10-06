@@ -1,0 +1,60 @@
+{
+  "task_id": "evento-mobile-control-plane-pilot-v1",
+  "project_id": "evento-mobile",
+  "objective": "Verify the Phase B Mobile metadata bridge without changing the merged ONE UI runtime.",
+  "acceptance_criteria": [
+    "Agent, Context, Task and Evidence bridge follows source-linked EVENTO contracts",
+    "Context/Task/Evidence and memory items conform to pinned central schemas offline",
+    "Mobile consumes ONE v1; customer and payment authority remain in ONE",
+    "Deterministic positive and negative validation passes on exact PR head",
+    "Only pilot allowlisted paths change; no runtime, hosted mutation, merge or release"
+  ],
+  "non_goals": [
+    "Change PR #11 runtime or legacy entrypoints",
+    "Hosted Mobile to ONE E2E proof",
+    "Physical-device acceptance or release signing",
+    "Customer or payment writes",
+    "Stripe integration (deferred)"
+  ],
+  "target_platforms": [
+    "android",
+    "ios"
+  ],
+  "mode": "verify",
+  "risk": "low",
+  "required_evidence": [
+    "source",
+    "ci",
+    "manual_review"
+  ],
+  "dependencies": [
+    "EVENTo0/Evento-project-development-v1@e66a0513926c0bec00f79081f08ffea9ff9dc31d",
+    "EVENTo0/Evento-One@e6d2e6a91ced6eb06ae0c5a276652496c4778954"
+  ],
+  "allowed_actions": [
+    "read-repository",
+    "write-pilot-allowlisted-paths",
+    "run-offline-validation",
+    "open-isolated-draft-pr"
+  ],
+  "forbidden_actions": [
+    "push-directly-to-main",
+    "self-approve",
+    "self-merge",
+    "production-deploy",
+    "hosted-supabase-mutation",
+    "dns-change",
+    "payment-change",
+    "store-release",
+    "runtime-change",
+    "customer-truth-write",
+    "payment-truth-write",
+    "secret-storage"
+  ],
+  "deployment_trigger": null,
+  "rollback": "Revert only the isolated pilot commit; no runtime or database rollback is needed.",
+  "preferred_agents": [
+    "codex"
+  ],
+  "status": "verifying"
+}

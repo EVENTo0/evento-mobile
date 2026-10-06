@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "project_id": "evento-mobile",
+  "repository": "EVENTo0/evento-mobile",
+  "authority_role": "mobile-operator-customer-interface",
+  "baseline": {
+    "branch": "main",
+    "commit": "8c378d29b15bc25465a9b993879e00f997d8ce55",
+    "runtime_merge": "9f4bb3255f5fae754efb5d72f0f9622515bcd92c",
+    "verified_head": "b9b12d6d69c3235471c83cfbd87155dc7f4ec006",
+    "ci_run_id": "37298902955",
+    "ci_conclusion": "success"
+  },
+  "contracts": {
+    "agent_contract": "AGENTS.md",
+    "context_pack": ".evento/context-pack.json",
+    "task_contract": ".evento/task-contract.json",
+    "evidence_pack": ".evento/evidence-pack.json"
+  },
+  "authority_chain": [
+    {
+      "project_id": "evento-acquisition",
+      "repository": "EVENTo0/Evento-project-development-v1",
+      "role": "acquisition-and-lead-truth",
+      "revision": "e66a0513926c0bec00f79081f08ffea9ff9dc31d"
+    },
+    {
+      "project_id": "evento-one",
+      "repository": "EVENTo0/Evento-One",
+      "role": "customer-saas-truth",
+      "revision": "e6d2e6a91ced6eb06ae0c5a276652496c4778954"
+    },
+    {
+      "project_id": "evento-mobile",
+      "repository": "EVENTo0/evento-mobile",
+      "role": "mobile-operator-customer-interface",
+      "revision": "8c378d29b15bc25465a9b993879e00f997d8ce55"
+    }
+  ],
+  "schema_source": {
+    "repository": "EVENTo0/AAA-prompt-empire",
+    "revision": "32437dec9ff2cf47a33b9ca1073415026110d116",
+    "paths": [
+      "memory/context-pack.schema.json",
+      "memory/memory.schema.json",
+      "schemas/evento-task.schema.json",
+      "schemas/evento-evidence-pack.schema.json"
+    ]
+  },
+  "required_lanes": [
+    "agent-contract",
+    "memory",
+    "evidence"
+  ],
+  "memory_policy": {
+    "namespace": "projects/evento-mobile",
+    "authoritative_states": [
+      "verified",
+      "active"
+    ],
+    "promotion_requires_independent_evidence": true,
+    "share_to_evento_requires_review": true,
+    "secret_storage": "forbidden"
+  },
+  "policy": {
+    "default": "deny",
+    "provider_neutral": true,
+    "self_approval": false,
+    "self_merge": false,
+    "direct_main_push": false,
+    "production_mutation": false,
+    "external_release": false,
+    "customer_truth": false,
+    "payment_truth": false,
+    "runtime_changes": false
+  },
+  "allowed_paths": [
+    "AGENTS.md",
+    ".evento/**",
+    "scripts/validate-evento-control-plane-pilot.mjs",
+    "scripts/test-evento-control-plane-pilot.mjs",
+    ".github/workflows/evento-control-plane-pilot.yml",
+    "docs/authority/CONTROL_PLANE_PILOT_V1.md"
+  ]
+}

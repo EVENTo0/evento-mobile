@@ -1,0 +1,112 @@
+{
+  "task": "evento-mobile-control-plane-pilot-v1",
+  "project_id": "evento-mobile",
+  "domain": "mobile",
+  "facts": [
+    {
+      "id": "mobile-baseline",
+      "title": "mobile-baseline",
+      "memory_type": "fact",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "verified",
+      "summary": "Inspected main 8c378d29b15bc25465a9b993879e00f997d8ce55 includes PR #11 merge 9f4bb3255f5fae754efb5d72f0f9622515bcd92c. PR #11 software CI does not prove hosted Auth or physical-device acceptance.",
+      "evidence": [
+        {
+          "kind": "url",
+          "ref": "https://github.com/EVENTo0/evento-mobile/commit/8c378d29b15bc25465a9b993879e00f997d8ce55"
+        }
+      ]
+    },
+    {
+      "id": "one-member-entry",
+      "title": "one-member-entry",
+      "memory_type": "fact",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "verified",
+      "summary": "lib/main_one.dart is a separate unconfigured TEST member read entry. Legacy main/RC6 remain separate.",
+      "evidence": [
+        {
+          "kind": "document",
+          "ref": "docs/authority/ONE_MEMBER_UI_V1.md"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "pilot-isolation",
+      "title": "pilot-isolation",
+      "memory_type": "decision",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "active",
+      "summary": "Pilot is metadata/verification only; preserve merged PR #11 runtime and all other workstreams.",
+      "evidence": [
+        {
+          "kind": "document",
+          "ref": "AGENTS.md"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "authority-chain",
+      "title": "authority-chain",
+      "memory_type": "rule",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "active",
+      "summary": "Website owns acquisition/lead truth. ONE owns customer/SaaS/billing truth. Mobile is a consumer of versioned ONE APIs, never customer or payment truth.",
+      "evidence": [
+        {
+          "kind": "document",
+          "ref": "AGENTS.md"
+        }
+      ]
+    },
+    {
+      "id": "no-release",
+      "title": "no-release",
+      "memory_type": "rule",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "active",
+      "summary": "No self-approval, self-merge, production mutation, secret storage or external release. Evidence types are not interchangeable.",
+      "evidence": [
+        {
+          "kind": "document",
+          "ref": "AGENTS.md"
+        }
+      ]
+    }
+  ],
+  "lessons": [],
+  "patterns": [],
+  "anti_patterns": [
+    {
+      "id": "synthetic-proof-promotion",
+      "title": "synthetic-proof-promotion",
+      "memory_type": "anti_pattern",
+      "domain": "mobile",
+      "project_id": "evento-mobile",
+      "scope": "project",
+      "validation_state": "active",
+      "summary": "Do not promote synthetic fixtures, debug APKs, successful SDK initialization or producer-only proof into hosted Mobile E2E, device, payment or release evidence.",
+      "evidence": [
+        {
+          "kind": "document",
+          "ref": "docs/authority/ONE_MEMBER_UI_V1.md"
+        }
+      ]
+    }
+  ],
+  "generated_at": null
+}
