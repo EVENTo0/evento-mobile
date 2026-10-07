@@ -66,6 +66,25 @@ jobs:
           cp build/app/outputs/flutter-apk/app-debug.apk ci-apk/evento-one-g3-preview-api36.apk
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging ci-apk/evento-one-g3-preview-api36.apk | grep -F "targetSdkVersion:'36'"
           sha256sum ci-apk/evento-one-g3-preview-api36.apk > ci-apk/sha256.txt
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          apk = pathlib.Path('ci-apk/evento-one-g3-preview-api36.apk')
+          evidence = {
+            'sourceSha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+            'target': 'lib/main_one.dart',
+            'backendMode': 'one',
+            'targetSdk': 36,
+            'providerConfigurationSupplied': True,
+            'providerValuesRecorded': False,
+            'signing': 'Android debug/test only',
+            'apkSha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
+            'hostedLoginProof': False,
+            'physicalDeviceProof': False,
+            'releaseAuthority': False,
+            'productionAuthority': False
+          }
+          pathlib.Path('ci-apk/preview-provenance.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          PY
       - uses: actions/upload-artifact@v7
         with:
           name: evento-one-G3-preview-API36-${{ github.sha }}
