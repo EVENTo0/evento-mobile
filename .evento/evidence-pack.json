@@ -1,0 +1,55 @@
+{
+  "task_id": "evento-mobile-control-plane-pilot-v1",
+  "project_id": "evento-mobile",
+  "status": "partial",
+  "head_sha": "8c378d29b15bc25465a9b993879e00f997d8ce55",
+  "pr": null,
+  "evidence": [
+    {
+      "type": "source",
+      "ref": "https://github.com/EVENTo0/evento-mobile/commit/8c378d29b15bc25465a9b993879e00f997d8ce55",
+      "summary": "Inspected main baseline after PR #11 merge and build-status-only bot commit.",
+      "verified_by": "repository inspection"
+    },
+    {
+      "type": "ci",
+      "ref": "https://github.com/EVENTo0/evento-mobile/actions/runs/37298902955",
+      "summary": "Successful PR #11 software verification at b9b12d6d69c3235471c83cfbd87155dc7f4ec006; not pilot, hosted Auth or device proof.",
+      "verified_by": "GitHub Actions"
+    },
+    {
+      "type": "source",
+      "ref": "https://github.com/EVENTo0/Evento-project-development-v1/commit/e66a0513926c0bec00f79081f08ffea9ff9dc31d",
+      "summary": "Merged upstream pilot source inspected; runtime ownership stays repository-local.",
+      "verified_by": "repository inspection"
+    },
+    {
+      "type": "source",
+      "ref": "https://github.com/EVENTo0/Evento-One/commit/e6d2e6a91ced6eb06ae0c5a276652496c4778954",
+      "summary": "Merged upstream pilot source inspected; runtime ownership stays repository-local.",
+      "verified_by": "repository inspection"
+    },
+    {
+      "type": "manual_review",
+      "ref": "AGENTS.md",
+      "summary": "Local execution scope and authority boundaries; independent PR review remains pending.",
+      "verified_by": null
+    },
+    {
+      "type": "source",
+      "ref": "docs/authority/ONE_MEMBER_UI_V1.md",
+      "summary": "Merged ONE member TEST entry, memory-only session and read workspace; hosted/device proof still absent.",
+      "verified_by": "repository inspection"
+    }
+  ],
+  "remaining_gates": [
+    "Exact pilot PR-head CI and independent review before merge",
+    "Configured hosted Mobile to ONE Auth/tenant journey",
+    "Physical-device AR/EN, lifecycle and logout acceptance",
+    "Signing evidence and separate owner approval before any store release"
+  ],
+  "next_action": "Run the isolated pilot gate at the PR head and obtain independent review; do not activate or release.",
+  "learning_candidates": [
+    "Candidate only: keep schema-valid transport packs separate from repository-local pilot policy; promote after independent evidence."
+  ]
+}

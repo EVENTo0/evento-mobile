@@ -1,0 +1,46 @@
+name: EVENTO Mobile Control Plane Pilot
+
+on:
+  pull_request:
+    paths:
+      - '.evento/**'
+      - 'AGENTS.md'
+      - 'scripts/*evento-control-plane-pilot.mjs'
+      - 'docs/authority/**'
+      - '.github/workflows/evento-control-plane-pilot.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.evento/**'
+      - 'AGENTS.md'
+      - 'scripts/*evento-control-plane-pilot.mjs'
+      - 'docs/authority/**'
+      - '.github/workflows/evento-control-plane-pilot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; merged Website pilot
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Use pinned Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0; merged Website pilot
+        with:
+          node-version: '24.19.0'
+      - name: Validate schema and authority bridge offline
+        run: node scripts/validate-evento-control-plane-pilot.mjs
+      - name: Verify negative regressions offline
+        run: node scripts/test-evento-control-plane-pilot.mjs
+      - name: Enforce isolated pilot PR diff
+        if: github.event_name == 'pull_request'
+        env:
+          EVENTO_PILOT_BASE: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/validate-evento-control-plane-pilot.mjs --base "$EVENTO_PILOT_BASE"
