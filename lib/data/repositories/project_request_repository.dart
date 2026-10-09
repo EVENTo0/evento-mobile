@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/project_quote.dart';
 import '../../domain/project_request.dart';
 import '../../domain/project_workflow.dart';
 import '../../domain/request_live_detail.dart';
@@ -17,9 +18,12 @@ abstract interface class ProjectRequestRepository {
   Future<RequestAnalysisRecord?> getAnalysis(String requestId);
   Future<List<RequestEventRecord>> getEvents(String requestId);
   Future<ProjectWorkflowRecord?> getWorkflow(String requestId);
+  Future<ProjectQuoteRecord?> getQuote(String requestId);
   Future<void> requestAnalysis(String requestId);
   Future<void> startWorkflow(String requestId);
   Future<void> approveScope(String requestId);
+  Future<void> acceptQuote(String quoteId);
+  Future<Uri> createStripeCheckout(String quoteId);
 }
 
 class BackendNotConfiguredException implements Exception {
@@ -138,6 +142,17 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
   }
 
   @override
+  Future<ProjectQuoteRecord?> getQuote(String requestId) async {
+    _user;
+    final Map<String, dynamic>? row = await client
+        .from('project_quotes')
+        .select('id,quote_code,request_id,status,total_aed,valid_until')
+        .eq('request_id', requestId)
+        .maybeSingle();
+    return row == null ? null : ProjectQuoteRecord.fromJson(row);
+  }
+
+  @override
   Future<void> requestAnalysis(String requestId) async {
     _user;
     await client.functions.invoke(
@@ -146,19 +161,55 @@ class SupabaseProjectRequestRepository implements ProjectRequestRepository {
     );
   }
 
-  @override
-  Future<void> startWorkflow(String requestId) async {
+  Future<void> _transitionWorkflow(String requestId, String action) async {
     _user;
-    await client.rpc('start_project_workflow', params: <String, dynamic>{
-      'p_request_id': requestId,
-    });
+    await client.functions.invoke(
+      'workflow-transition',
+      body: <String, dynamic>{
+        'request_id': requestId,
+        'action': action,
+      },
+    );
   }
 
   @override
-  Future<void> approveScope(String requestId) async {
+  Future<void> startWorkflow(String requestId) =>
+      _transitionWorkflow(requestId, 'start');
+
+  @override
+  Future<void> approveScope(String requestId) =>
+      _transitionWorkflow(requestId, 'approve');
+
+  @override
+  Future<void> acceptQuote(String quoteId) async {
     _user;
-    await client.rpc('approve_project_scope', params: <String, dynamic>{
-      'p_request_id': requestId,
-    });
+    await client.functions.invoke(
+      'quote-action',
+      body: <String, dynamic>{
+        'action': 'accept',
+        'quote_id': quoteId,
+      },
+    );
+  }
+
+  @override
+  Future<Uri> createStripeCheckout(String quoteId) async {
+    _user;
+    final response = await client.functions.invoke(
+      'create-stripe-checkout',
+      body: <String, dynamic>{'quote_id': quoteId},
+    );
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('EVENTO checkout could not be created.');
+    }
+    final data = response.data;
+    if (data is! Map || data['checkout_url'] is! String) {
+      throw StateError('EVENTO checkout URL is missing.');
+    }
+    final uri = Uri.tryParse(data['checkout_url'] as String);
+    if (uri == null || uri.scheme != 'https') {
+      throw StateError('EVENTO checkout URL is invalid.');
+    }
+    return uri;
   }
 }

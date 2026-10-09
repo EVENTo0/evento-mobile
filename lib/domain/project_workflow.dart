@@ -37,9 +37,15 @@ class ProjectWorkflowRecord {
         case 'scope_approved':
           return 'Scope approved';
         case 'quote_preparation':
+        case 'quote_draft':
           return 'Quote preparation';
         case 'awaiting_quote_approval':
+        case 'quote_sent':
           return 'Awaiting quote approval';
+        case 'quote_approved':
+          return 'Quote approved • payment next';
+        case 'payment_pending':
+          return 'Payment pending';
         case 'build_queue':
           return 'Build queue';
         case 'in_development':
@@ -61,9 +67,15 @@ class ProjectWorkflowRecord {
       case 'scope_approved':
         return 'تم اعتماد النطاق';
       case 'quote_preparation':
+      case 'quote_draft':
         return 'إعداد عرض السعر';
       case 'awaiting_quote_approval':
+      case 'quote_sent':
         return 'بانتظار اعتماد عرض السعر';
+      case 'quote_approved':
+        return 'تم اعتماد السعر • الدفع هو التالي';
+      case 'payment_pending':
+        return 'بانتظار الدفع';
       case 'build_queue':
         return 'قائمة انتظار البناء';
       case 'in_development':
